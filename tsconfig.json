@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@pms/shared": ["packages/shared/src"],
+      "@pms/shared/*": ["packages/shared/src/*"],
+      "@pms/database": ["packages/database/src"],
+      "@pms/database/*": ["packages/database/src/*"],
+      "@pms/api": ["packages/api/src"],
+      "@pms/api/*": ["packages/api/src/*"],
+      "@pms/websocket": ["packages/websocket/src"],
+      "@pms/websocket/*": ["packages/websocket/src/*"]
+    }
+  },
+  "include": [],
+  "exclude": ["node_modules"]
+}
