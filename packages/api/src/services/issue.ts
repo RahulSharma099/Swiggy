@@ -3,6 +3,7 @@ import { AppError, ForbiddenError } from '@pms/shared';
 import { IssueRepository } from '../repositories/issue';
 import { ProjectRepository } from '../repositories/project';
 import { WorkspaceRepository } from '../repositories/workspace';
+import { AuditService } from './audit';
 import { z } from 'zod';
 
 /**
@@ -13,6 +14,7 @@ export const createIssueService = (deps: {
   issueRepo: IssueRepository;
   projectRepo: ProjectRepository;
   workspaceRepo: WorkspaceRepository;
+  auditService: AuditService;
   prisma: PrismaClient;
 }) => ({
   /**
@@ -79,15 +81,14 @@ export const createIssueService = (deps: {
     });
 
     // Log activity
-    await deps.prisma.activityLog.create({
-      data: {
-        issueId: issue.id,
-        workspaceId: project.workspaceId,
-        actionType: 'created',
-        changedFields: { created: true },
-        actorId: userId,
-      },
-    });
+    await deps.auditService.logIssueAction(
+      issue.id,
+      project.workspaceId,
+      'created',
+      userId,
+      { created: true },
+      `Issue "${validated.title}" created`
+    );
 
     return issue;
   },
@@ -165,15 +166,14 @@ export const createIssueService = (deps: {
     // Log activity
     const project = await deps.projectRepo.findById(issue.projectId);
     if (project) {
-      await deps.prisma.activityLog.create({
-        data: {
-          issueId,
-          workspaceId: project.workspaceId,
-          actionType: 'updated',
-          changedFields,
-          actorId: userId,
-        },
-      });
+      await deps.auditService.logIssueAction(
+        issueId,
+        project.workspaceId,
+        'updated',
+        userId,
+        changedFields,
+        `Issue updated with changes: ${Object.keys(changedFields).join(', ')}`
+      );
     }
 
     return updated;
@@ -211,15 +211,14 @@ export const createIssueService = (deps: {
     // Log activity
     const project = await deps.projectRepo.findById(issue.projectId);
     if (project) {
-      await deps.prisma.activityLog.create({
-        data: {
-          issueId,
-          workspaceId: project.workspaceId,
-          actionType: 'assigned',
-          changedFields: { assigneeId },
-          actorId: userId,
-        },
-      });
+      await deps.auditService.logIssueAction(
+        issueId,
+        project.workspaceId,
+        'assigned',
+        userId,
+        { assigneeId },
+        `Issue assigned to ${assigneeId}`
+      );
     }
 
     return updated;
@@ -250,15 +249,14 @@ export const createIssueService = (deps: {
     // Log activity
     const project = await deps.projectRepo.findById(issue.projectId);
     if (project) {
-      await deps.prisma.activityLog.create({
-        data: {
-          issueId,
-          workspaceId: project.workspaceId,
-          actionType: 'deleted',
-          changedFields: { deleted: true },
-          actorId: userId,
-        },
-      });
+      await deps.auditService.logIssueAction(
+        issueId,
+        project.workspaceId,
+        'deleted',
+        userId,
+        { deleted: true },
+        `Issue deleted`
+      );
     }
 
     return deleted;

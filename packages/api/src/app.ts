@@ -11,6 +11,7 @@ import {
   createProjectService,
   createWorkspaceService,
 } from './services';
+import { createAuditService } from './services/audit';
 import { createAuthMiddleware } from './middleware/auth';
 
 /**
@@ -48,20 +49,25 @@ export const createApp = () => {
   };
 
   // === Service Layer ===
+  const auditService = createAuditService(prisma);
+
   const services = {
     issue: createIssueService({
       issueRepo: repositories.issue,
       projectRepo: repositories.project,
       workspaceRepo: repositories.workspace,
+      auditService,
       prisma,
     }),
     project: createProjectService({
       projectRepo: repositories.project,
       workspaceRepo: repositories.workspace,
+      auditService,
       prisma,
     }),
     workspace: createWorkspaceService({
       workspaceRepo: repositories.workspace,
+      auditService,
       prisma,
     }),
   };

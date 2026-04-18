@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { AppError, ForbiddenError } from '@pms/shared';
 import { ProjectRepository } from '../repositories/project';
 import { WorkspaceRepository } from '../repositories/workspace';
+import { AuditService } from './audit';
 import { z } from 'zod';
 
 /**
@@ -11,6 +12,7 @@ import { z } from 'zod';
 export const createProjectService = (deps: {
   projectRepo: ProjectRepository;
   workspaceRepo: WorkspaceRepository;
+  auditService: AuditService;
   prisma: PrismaClient;
 }) => ({
   /**
@@ -60,15 +62,14 @@ export const createProjectService = (deps: {
     await deps.projectRepo.addMember(project.id, userId, 'owner');
 
     // Log activity
-    await deps.prisma.activityLog.create({
-      data: {
-        issueId: project.id as any, // Note: ActivityLog references Issue, ideally should have Project too
-        workspaceId: validated.workspaceId,
-        actionType: 'created',
-        changedFields: { resource: 'project', created: true },
-        actorId: userId,
-      },
-    });
+    await deps.auditService.logProjectAction(
+      project.id,
+      validated.workspaceId,
+      'created',
+      userId,
+      { created: true },
+      `Project "${validated.name}" created`
+    );
 
     return project;
   },

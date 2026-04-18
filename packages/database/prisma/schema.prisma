@@ -183,20 +183,26 @@ model Comment {
 /// ActivityLog model for audit trail
 model ActivityLog {
     id            String   @id @default(cuid())
-    issueId       String
+    resourceType  String // 'issue', 'project', 'workspace'
+    resourceId    String // ID of the issue/project/workspace
+    issueId       String? // deprecated, but kept for backward compatibility
     workspaceId   String
-    actionType    String // created, updated, status_changed, commented, deleted
+    actionType    String // created, updated, deleted, status_changed, assigned, commented, member_added, member_removed, role_changed
     changedFields Json     @default("{}") // delta of what changed
+    description   String? // human-readable description of the action
     actorId       String
     createdAt     DateTime @default(now())
 
     // Relations
-    issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
-    actor User  @relation(fields: [actorId], references: [id], onDelete: Cascade)
+    issue Issue? @relation(fields: [issueId], references: [id], onDelete: Cascade)
+    actor User   @relation(fields: [actorId], references: [id], onDelete: Cascade)
 
-    @@index([issueId])
+    @@index([resourceType])
+    @@index([resourceId])
     @@index([workspaceId])
+    @@index([actorId])
     @@index([createdAt])
+    @@index([issueId])
 }
 
 /// Watcher model for issue notifications

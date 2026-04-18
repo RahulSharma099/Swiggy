@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { AppError, ForbiddenError } from '@pms/shared';
 import { WorkspaceRepository } from '../repositories/workspace';
+import { AuditService } from './audit';
 import { z } from 'zod';
 
 /**
@@ -9,6 +10,7 @@ import { z } from 'zod';
  */
 export const createWorkspaceService = (deps: {
   workspaceRepo: WorkspaceRepository;
+  auditService: AuditService;
   prisma: PrismaClient;
 }) => ({
   /**
@@ -37,15 +39,13 @@ export const createWorkspaceService = (deps: {
     await deps.workspaceRepo.addMember(workspace.id, userId, 'owner');
 
     // Log activity
-    await deps.prisma.activityLog.create({
-      data: {
-        issueId: workspace.id as any, // Note: Should have workspace reference
-        workspaceId: workspace.id,
-        actionType: 'created',
-        changedFields: { resource: 'workspace', created: true },
-        actorId: userId,
-      },
-    });
+    await deps.auditService.logWorkspaceAction(
+      workspace.id,
+      'created',
+      userId,
+      { created: true },
+      `Workspace "${validated.name}" created`
+    );
 
     return workspace;
   },
