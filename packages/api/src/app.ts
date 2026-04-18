@@ -11,6 +11,25 @@ import {
   createProjectService,
   createWorkspaceService,
 } from './services';
+import { createAuthMiddleware } from './middleware/auth';
+
+/**
+ * Type definitions for dependencies
+ */
+export interface AppDependencies {
+  repositories: {
+    issue: ReturnType<typeof createIssueRepository>;
+    project: ReturnType<typeof createProjectRepository>;
+    workspace: ReturnType<typeof createWorkspaceRepository>;
+    user: ReturnType<typeof createUserRepository>;
+  };
+  services: {
+    issue: ReturnType<typeof createIssueService>;
+    project: ReturnType<typeof createProjectService>;
+    workspace: ReturnType<typeof createWorkspaceService>;
+  };
+  prisma: ReturnType<typeof getPrismaClient>;
+}
 
 /**
  * Application setup with dependency injection
@@ -63,9 +82,12 @@ export const createApp = () => {
   });
 
   // === Dependency Injection Context ===
-  const deps = { repositories, services, prisma };
+  const deps: AppDependencies = { repositories, services, prisma };
 
-  return { app, deps };
+  // === Authorization Middleware ===
+  const auth = createAuthMiddleware(deps);
+
+  return { app, deps, auth };
 };
 
-export type AppDependencies = ReturnType<typeof createApp>['deps'];
+export type AuthMiddleware = ReturnType<typeof createAuthMiddleware>;

@@ -13,13 +13,13 @@ import {
 const PORT = process.env.PORT || 3000;
 
 const main = async () => {
-  const { app, deps } = createApp();
+  const { app, deps, auth } = createApp();
 
   // === Routes ===
   app.use('/api', createHealthRoute());
-  app.use('/api/workspaces', createWorkspaceRoutes(deps));
-  app.use('/api/projects', createProjectRoutes(deps));
-  app.use('/api/issues', createIssueRoutes(deps));
+  app.use('/api/workspaces', createWorkspaceRoutes(deps, auth));
+  app.use('/api/projects', createProjectRoutes(deps, auth));
+  app.use('/api/issues', createIssueRoutes(deps, auth));
 
   // === Error Handler ===
   app.use((err: any, _req: any, res: any, _next: any) => {

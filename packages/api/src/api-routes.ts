@@ -1,19 +1,19 @@
 import { Router, Request, Response } from 'express';
 import { AppError } from '@pms/shared';
-import { AppDependencies } from './app';
+import { AppDependencies, AuthMiddleware } from './app';
 
 /**
- * Workspace Routes with service integration
+ * Workspace Routes with service integration and authorization
  */
-export const createWorkspaceRoutes = (deps: AppDependencies) => {
+export const createWorkspaceRoutes = (deps: AppDependencies, auth: AuthMiddleware) => {
   const router = Router();
   const { services } = deps;
 
   /**
    * POST /api/workspaces
-   * Create a new workspace
+   * Create a new workspace (auth required)
    */
-  router.post('/', async (req: Request, res: Response) => {
+  router.post('/', auth.requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
       const { name } = req.body;
@@ -31,9 +31,9 @@ export const createWorkspaceRoutes = (deps: AppDependencies) => {
 
   /**
    * GET /api/workspaces
-   * Get all workspaces for user
+   * Get all workspaces for user (auth required)
    */
-  router.get('/', async (req: Request, res: Response) => {
+  router.get('/', auth.requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
       const workspaces = await services.workspace.getUserWorkspaces(userId);
@@ -46,9 +46,9 @@ export const createWorkspaceRoutes = (deps: AppDependencies) => {
 
   /**
    * GET /api/workspaces/:id
-   * Get single workspace
+   * Get single workspace (member required)
    */
-  router.get('/:id', async (req: Request, res: Response) => {
+  router.get('/:id', auth.requireWorkspaceMember('id'), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const workspace = await services.workspace.getWorkspace(id);
@@ -64,9 +64,9 @@ export const createWorkspaceRoutes = (deps: AppDependencies) => {
 
   /**
    * PUT /api/workspaces/:id
-   * Update workspace
+   * Update workspace (owner required)
    */
-  router.put('/:id', async (req: Request, res: Response) => {
+  router.put('/:id', auth.requireWorkspaceOwner('id'), async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
       const { id } = req.params;
@@ -85,9 +85,9 @@ export const createWorkspaceRoutes = (deps: AppDependencies) => {
 
   /**
    * POST /api/workspaces/:id/members
-   * Add member to workspace
+   * Add member to workspace (owner required)
    */
-  router.post('/:id/members', async (req: Request, res: Response) => {
+  router.post('/:id/members', auth.requireWorkspaceOwner('id'), async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
       const { id } = req.params;
@@ -106,9 +106,9 @@ export const createWorkspaceRoutes = (deps: AppDependencies) => {
 
   /**
    * GET /api/workspaces/:id/members
-   * Get workspace members
+   * Get workspace members (member required)
    */
-  router.get('/:id/members', async (req: Request, res: Response) => {
+  router.get('/:id/members', auth.requireWorkspaceMember('id'), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const members = await services.workspace.getMembers(id);
@@ -123,17 +123,17 @@ export const createWorkspaceRoutes = (deps: AppDependencies) => {
 };
 
 /**
- * Project Routes with service integration
+ * Project Routes with service integration and authorization
  */
-export const createProjectRoutes = (deps: AppDependencies) => {
+export const createProjectRoutes = (deps: AppDependencies, auth: AuthMiddleware) => {
   const router = Router();
   const { services } = deps;
 
   /**
    * POST /api/projects
-   * Create a new project
+   * Create a new project (auth required)
    */
-  router.post('/', async (req: Request, res: Response) => {
+  router.post('/', auth.requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
       const { workspaceId, name, description, keyPrefix } = req.body;
@@ -154,9 +154,9 @@ export const createProjectRoutes = (deps: AppDependencies) => {
 
   /**
    * GET /api/projects/:id
-   * Get single project
+   * Get single project (member required)
    */
-  router.get('/:id', async (req: Request, res: Response) => {
+  router.get('/:id', auth.requireProjectMember('id'), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const project = await services.project.getProject(id);
@@ -172,9 +172,9 @@ export const createProjectRoutes = (deps: AppDependencies) => {
 
   /**
    * PUT /api/projects/:id
-   * Update project
+   * Update project (lead required)
    */
-  router.put('/:id', async (req: Request, res: Response) => {
+  router.put('/:id', auth.requireProjectLead('id'), async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
       const { id } = req.params;
@@ -193,9 +193,9 @@ export const createProjectRoutes = (deps: AppDependencies) => {
 
   /**
    * POST /api/projects/:id/members
-   * Add member to project
+   * Add member to project (lead required)
    */
-  router.post('/:id/members', async (req: Request, res: Response) => {
+  router.post('/:id/members', auth.requireProjectLead('id'), async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
       const { id } = req.params;
@@ -214,9 +214,9 @@ export const createProjectRoutes = (deps: AppDependencies) => {
 
   /**
    * GET /api/projects/:id/members
-   * Get project members
+   * Get project members (member required)
    */
-  router.get('/:id/members', async (req: Request, res: Response) => {
+  router.get('/:id/members', auth.requireProjectMember('id'), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const members = await services.project.getMembers(id);
@@ -231,17 +231,17 @@ export const createProjectRoutes = (deps: AppDependencies) => {
 };
 
 /**
- * Issue Routes with service integration
+ * Issue Routes with service integration and authorization
  */
-export const createIssueRoutes = (deps: AppDependencies) => {
+export const createIssueRoutes = (deps: AppDependencies, auth: AuthMiddleware) => {
   const router = Router();
   const { services } = deps;
 
   /**
    * POST /api/issues
-   * Create a new issue
+   * Create a new issue (project member required)
    */
-  router.post('/', async (req: Request, res: Response) => {
+  router.post('/', auth.requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
       const { projectId, title, description, type, priority, storyPoints, reporterId, assigneeId } =
@@ -272,9 +272,9 @@ export const createIssueRoutes = (deps: AppDependencies) => {
 
   /**
    * GET /api/issues/:id
-   * Get single issue
+   * Get single issue (auth required)
    */
-  router.get('/:id', async (req: Request, res: Response) => {
+  router.get('/:id', auth.requireAuth, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const issue = await services.issue.getIssue(id);
@@ -290,9 +290,9 @@ export const createIssueRoutes = (deps: AppDependencies) => {
 
   /**
    * PUT /api/issues/:id
-   * Update issue
+   * Update issue (auth required - service checks authorization)
    */
-  router.put('/:id', async (req: Request, res: Response) => {
+  router.put('/:id', auth.requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
       const { id } = req.params;
@@ -311,9 +311,9 @@ export const createIssueRoutes = (deps: AppDependencies) => {
 
   /**
    * DELETE /api/issues/:id
-   * Delete issue
+   * Delete issue (auth required - service checks authorization)
    */
-  router.delete('/:id', async (req: Request, res: Response) => {
+  router.delete('/:id', auth.requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
       const { id } = req.params;
@@ -331,9 +331,9 @@ export const createIssueRoutes = (deps: AppDependencies) => {
 
   /**
    * GET /api/issues?projectId=:projectId
-   * Get issues for project
+   * Get issues for project (auth required)
    */
-  router.get('/', async (req: Request, res: Response) => {
+  router.get('/', auth.requireAuth, async (req: Request, res: Response) => {
     try {
       const { projectId, status, assigneeId, type } = req.query;
 
@@ -355,9 +355,9 @@ export const createIssueRoutes = (deps: AppDependencies) => {
 
   /**
    * PATCH /api/issues/:id/assign
-   * Assign issue to user
+   * Assign issue to user (auth required - service checks authorization)
    */
-  router.patch('/:id/assign', async (req: Request, res: Response) => {
+  router.patch('/:id/assign', auth.requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
       const { id } = req.params;
