@@ -25,6 +25,7 @@ import {
   setupGracefulShutdownHandlers,
   createShutdownMiddleware,
 } from "./observability/graceful-shutdown";
+import { createMetricsRoutes } from "./observability/metrics-routes";
 
 /**
  * Main server entry point
@@ -70,6 +71,9 @@ const main = async () => {
   app.get("/health/ready", readinessHandler);
   app.get("/health/deep", deepHealthHandler);
 
+  // === Metrics Routes ===
+  app.use("/metrics", createMetricsRoutes(deps.metricsCollector));
+
   // === API Routes ===
   app.use("/api", createHealthRoute());
   app.use("/api/workspaces", createWorkspaceRoutes(deps, auth));
@@ -94,7 +98,8 @@ const main = async () => {
     console.log(
       `\n📋 Health Checks:\n  Liveness:  GET http://localhost:${PORT}/health/live\n  Readiness: GET http://localhost:${PORT}/health/ready\n  Deep:      GET http://localhost:${PORT}/health/deep`
     );
-    console.log(`📋 API Health: GET http://localhost:${PORT}/api/health`);
+    console.log(`� Metrics:\n  Prometheus: GET http://localhost:${PORT}/metrics\n  JSON:       GET http://localhost:${PORT}/metrics/json\n  Summary:    GET http://localhost:${PORT}/metrics/summary\n  Events:     GET http://localhost:${PORT}/metrics/events`);
+    console.log(`�📋 API Health: GET http://localhost:${PORT}/api/health`);
     console.log(
       `📖 Routes loaded: workspaces, projects, issues, workflows, sprints, comments, search, search-agg, search-analytics\n`
     );

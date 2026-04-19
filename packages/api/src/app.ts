@@ -37,6 +37,8 @@ import {
   correlationIdMiddleware,
   requestTimingMiddleware,
 } from "./middleware/correlation-id";
+import { MetricsCollector, createMetricsCollector } from "./observability/metrics";
+import { createRequestMetricsMiddleware } from "./observability/request-metrics";
 
 /**
  * Type definitions for dependencies
@@ -68,6 +70,7 @@ export interface AppDependencies {
   prisma: ReturnType<typeof getPrismaClient>;
   redis: RedisClientType;
   eventBus: EventBus;
+  metricsCollector: MetricsCollector;
 }
 
 /**
@@ -186,6 +189,12 @@ export const createApp = () => {
   // Add request timing and logging
   app.use(requestTimingMiddleware);
 
+  // Initialize metrics collector
+  const metricsCollector = createMetricsCollector();
+
+  // Add request metrics middleware
+  app.use(createRequestMetricsMiddleware(metricsCollector));
+
   // Request context middleware - extract user ID from headers
   // In production, this would verify JWT tokens
   app.use((req, res, next) => {
@@ -244,6 +253,7 @@ export const createApp = () => {
     prisma,
     redis,
     eventBus,
+    metricsCollector,
   };
 
   // Store initialization function for later call in server.ts
