@@ -26,6 +26,7 @@ import {
 } from "./services";
 import { createAuditService } from "./services/audit";
 import { createAuthMiddleware } from "./middleware/auth";
+import { decodeJWT } from "./auth/jwt";
 import {
   createEventBus,
   createActivityLogHandler,
@@ -199,13 +200,36 @@ export const createApp = () => {
   app.use(createRequestMetricsMiddleware(metricsCollector));
 
   // Request context middleware - extract user ID from headers
-  // In production, this would verify JWT tokens
+  // Supports both x-user-id header and JWT in Authorization header
   app.use((req, res, next) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId && req.path !== "/health") {
-      res.status(401).json({ error: "Missing user ID" });
+    const exemptPathPatterns = ["/health", "/auth", "/metrics"];
+    const isExempt = exemptPathPatterns.some((pattern) =>
+      req.path.startsWith(pattern),
+    );
+
+    let userId: string | undefined;
+
+    // Try to extract userId from x-user-id header (legacy support)
+    userId = req.headers["x-user-id"] as string;
+
+    // If not found, try to extract from JWT in Authorization header
+    if (!userId) {
+      const authHeader = req.headers.authorization as string;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        const token = authHeader.substring(7); // Remove "Bearer " prefix
+        const payload = decodeJWT(token);
+        if (payload && payload.type === "access") {
+          userId = payload.userId;
+        }
+      }
+    }
+
+    // Require userId for non-exempt paths
+    if (!userId && !isExempt) {
+      res.status(401).json({ error: "Missing user ID or invalid JWT" });
       return;
     }
+
     (req as any).userId = userId;
     next();
   });

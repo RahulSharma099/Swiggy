@@ -11,6 +11,7 @@ import {
   createSearchAggregatorRoutes,
   createSearchAnalyticsRoutes,
 } from "./api-routes";
+import { createAuthRoutes } from "./auth/auth-routes";
 import {
   setupWebSocketPublishing,
   closeWebSocketPublisher,
@@ -73,6 +74,9 @@ const main = async () => {
 
   // === Metrics Routes ===
   app.use("/metrics", createMetricsRoutes(deps.metricsCollector));
+
+  // === Authentication Routes ===
+  app.use("/auth", createAuthRoutes());
 
   // === API Routes ===
   app.use("/api", createHealthRoute());

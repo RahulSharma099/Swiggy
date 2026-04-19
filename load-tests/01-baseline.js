@@ -137,33 +137,6 @@ export default function () {
 
 export function handleSummary(data) {
   return {
-    stdout: textSummary(data, { indent: " ", enableColors: true }),
     "load-tests/results/baseline.json": JSON.stringify(data),
   };
-}
-
-// Simple text summary formatter
-function textSummary(data, options) {
-  let output = "\n=== Load Test Results ===\n";
-
-  const metrics = data.metrics;
-  if (metrics.http_req_duration) {
-    const duration = metrics.http_req_duration.values;
-    output += `\nRequest Duration:\n`;
-    output += `${options.indent}min: ${duration.min}ms\n`;
-    output += `${options.indent}avg: ${duration.avg}ms\n`;
-    output += `${options.indent}max: ${duration.max}ms\n`;
-    output += `${options.indent}p(95): ${duration.p(95)}ms\n`;
-    output += `${options.indent}p(99): ${duration.p(99)}ms\n`;
-  }
-
-  if (metrics.http_reqs) {
-    output += `\nTotal Requests: ${metrics.http_reqs.value}\n`;
-  }
-
-  if (data.metrics.errors) {
-    output += `\nErrors: ${data.metrics.errors.value || 0}\n`;
-  }
-
-  return output;
 }

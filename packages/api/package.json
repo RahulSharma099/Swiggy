@@ -4,7 +4,7 @@
   "description": "REST API server",
   "main": "./dist/index.js",
   "scripts": {
-    "dev": "tsc-watch --onSuccess \"node dist/index.js\" --project tsconfig.json",
+    "dev": "tsc-watch --onSuccess \"node dist/server.js\" --project tsconfig.json",
     "build": "tsc",
     "type-check": "tsc --noEmit",
     "test": "jest",
