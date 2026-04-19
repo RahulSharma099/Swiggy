@@ -46,12 +46,40 @@ swiggy/
 
 ## 🚀 Getting Started
 
-### Prerequisites
-- Node.js 23.x or higher
-- PostgreSQL 12+
-- npm or yarn
+### Quick Start with Docker Compose (Recommended) 🐳
 
-### Installation
+**Prerequisites**: Docker & Docker Compose
+
+```bash
+# 1. Clone repository
+git clone https://github.com/RahulSharma099/Swiggy.git
+cd Swiggy
+
+# 2. Start all services (PostgreSQL, Redis, API, WebSocket)
+docker-compose up -d
+
+# 3. Verify
+curl http://localhost:3000/health
+```
+
+**Access Points:**
+- API: http://localhost:3000
+- WebSocket: http://localhost:3001
+- Adminer (Database UI): http://localhost:8080
+- Redis Commander (Redis UI): http://localhost:8081
+
+**Credentials:**
+- Database: `pms_user` / `pms_password`
+- Redis: `redis_password`
+
+---
+
+### Traditional Local Setup ⚙️
+
+**Prerequisites:**
+- Node.js 20+
+- PostgreSQL 12+
+- npm 9+
 
 1. **Clone the repository**
    ```bash
@@ -81,6 +109,7 @@ swiggy/
    ```bash
    cd packages/database
    npx prisma db push
+   cd ../..
    ```
 
 5. **Run development servers**
@@ -89,6 +118,10 @@ swiggy/
    ```
    
    This will start both API (port 3000) and WebSocket (port 3001) servers with hot-reload.
+
+---
+
+**See [SETUP.md](./SETUP.md) for detailed setup instructions for both methods.**
 
 ## 📚 API Endpoints
 
@@ -138,11 +171,23 @@ GET /workspaces/:id/analytics # Get workspace analytics
 ## 🧪 Testing
 
 ### Run All Tests
+
+**Local Setup:**
 ```bash
 npm test
 ```
 
+**Docker Setup:**
+```bash
+# Run tests inside container
+docker-compose exec api npm test
+
+# Or from host
+docker-compose run --rm api npm test
+```
+
 ### Test Coverage
+
 ```bash
 npm test -- --coverage
 ```
@@ -164,6 +209,33 @@ Tests are located in `packages/api/src/__tests__/` with:
 
 3. **Run Full Workflow**
    - Create workspace → Create project → Create issue → Update issue
+
+### Manual Testing with cURL
+
+```bash
+# Health check
+curl http://localhost:3000/health
+
+# Create workspace
+curl -X POST http://localhost:3000/workspaces \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Test Workspace"}'
+
+# Create project
+curl -X POST http://localhost:3000/projects \
+  -H "Content-Type: application/json" \
+  -d '{"workspaceId": "<workspace-id>", "name": "Test Project"}'
+
+# Create issue
+curl -X POST http://localhost:3000/issues \
+  -H "Content-Type: application/json" \
+  -d '{
+    "projectId": "<project-id>",
+    "title": "Test Issue",
+    "type": "task",
+    "priority": 2
+  }'
+```
 
 ## 📋 Development
 
@@ -204,7 +276,71 @@ cd packages/database
 npx prisma migrate dev --name <migration_name>
 ```
 
-## 📖 Documentation
+## � Docker & Container Setup
+
+### Quick Start with Docker Compose
+
+Start all services (PostgreSQL, Redis, API, WebSocket):
+
+```bash
+docker-compose up -d
+```
+
+This creates:
+- **PostgreSQL** (port 5432) - Primary database
+- **Redis** (port 6379) - Caching & Pub/Sub
+- **API Server** (port 3000) - REST API
+- **WebSocket Server** (port 3001) - Real-time updates
+- **Adminer** (port 8080) - Database UI
+- **Redis Commander** (port 8081) - Redis UI
+
+### Docker Compose Commands
+
+```bash
+# View running services
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+
+# View specific service logs
+docker-compose logs -f api
+
+# Stop services
+docker-compose down
+
+# Stop and remove data
+docker-compose down -v
+
+# Restart service
+docker-compose restart api
+
+# Rebuild image
+docker-compose build --no-cache
+```
+
+### Access Services
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| API Health | http://localhost:3000/health | - |
+| Adminer (DB UI) | http://localhost:8080 | pms_user / pms_password |
+| Redis Commander | http://localhost:8081 | - |
+| Postman Workflow | postman_workflow.json | - |
+
+### Docker Environment Variables
+
+Configure `.env` file (copy from `.env.docker`):
+```env
+DB_USER=pms_user
+DB_PASSWORD=pms_password
+REDIS_PASSWORD=redis_password
+LOG_LEVEL=info
+```
+
+**See [SETUP.md](./SETUP.md) for complete Docker Compose documentation.**
+
+## �📖 Documentation
 
 Comprehensive technical documentation is available in the `/docs` folder:
 
@@ -271,5 +407,5 @@ For issues or questions, refer to the technical documentation in the `/docs` fol
 ---
 
 **Last Updated**: April 19, 2026  
-**Version**: 1.0.0  
+**Version**: 2.0.0 (with Docker Compose support)
 **Status**: Ready for Submission ✅
