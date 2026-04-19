@@ -15,8 +15,6 @@ import {
   createGetIssueHandler,
   createUpdateIssueHandler,
   createDeleteIssueHandler,
-  createCreateCommentHandler,
-  createGetCommentsHandler,
 } from './handlers';
 
 /**
@@ -47,9 +45,7 @@ export const createRoutes = (prisma: PrismaClient) => {
   router.put('/issues/:issueId', createUpdateIssueHandler(prisma));
   router.delete('/issues/:issueId', createDeleteIssueHandler(prisma));
 
-  // Comment routes
-  router.post('/comments', createCreateCommentHandler(prisma));
-  router.get('/issues/:issueId/comments', createGetCommentsHandler(prisma));
+  // Note: Comment routes are now handled via api-routes.ts with service-based architecture
 
   return router;
 };

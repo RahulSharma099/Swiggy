@@ -2,21 +2,18 @@ module.exports = {
   displayName: '@pms/api',
   testEnvironment: 'node',
   preset: 'ts-jest',
-  rootDir: './src',
-  passWithNoTests: true,
-  testMatch: ['**/__tests__/**/*.test.ts', '**/*.test.ts'],
+  testMatch: ['<rootDir>/src/**/__tests__/**/*.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  moduleNameMapper: {
-    '^@pms/shared$': '<rootDir>/../shared/src',
-    '^@pms/shared/(.*)$': '<rootDir>/../shared/src/$1',
-    '^@pms/database$': '<rootDir>/../database/src',
-    '^@pms/database/(.*)$': '<rootDir>/../database/src/$1',
+  globals: {
+    'ts-jest': {
+      tsconfig: '<rootDir>/tsconfig.json',
+    },
   },
   collectCoverageFrom: [
-    '**/*.ts',
-    '!**/*.d.ts',
+    'src/**/*.ts',
+    '!src/**/*.d.ts',
     '!**/node_modules/**',
-    '!**/__tests__/**',
+    '!src/**/__tests__/**',
   ],
   coverageThreshold: {
     global: {

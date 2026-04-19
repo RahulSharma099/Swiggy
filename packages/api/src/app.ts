@@ -1,15 +1,28 @@
 import express from 'express';
+import { createClient, RedisClientType } from 'redis';
 import { getPrismaClient } from '@pms/database';
 import {
   createIssueRepository,
   createProjectRepository,
   createWorkspaceRepository,
   createUserRepository,
+  createWorkflowRepository,
+  createSprintRepository,
+  createCommentRepository,
+  createSearchRepository,
+  createSearchAnalyticsRepository,
 } from './repositories';
 import {
   createIssueService,
   createProjectService,
   createWorkspaceService,
+  createWorkflowEngine,
+  createSprintService,
+  createCommentService,
+  createSearchService,
+  createSearchAggregator,
+  createSearchCache,
+  createSearchAnalyticsService,
 } from './services';
 import { createAuditService } from './services/audit';
 import { createAuthMiddleware } from './middleware/auth';
@@ -23,13 +36,26 @@ export interface AppDependencies {
     project: ReturnType<typeof createProjectRepository>;
     workspace: ReturnType<typeof createWorkspaceRepository>;
     user: ReturnType<typeof createUserRepository>;
+    workflow: ReturnType<typeof createWorkflowRepository>;
+    sprint: ReturnType<typeof createSprintRepository>;
+    comment: ReturnType<typeof createCommentRepository>;
+    search: ReturnType<typeof createSearchRepository>;
+    searchAnalytics: ReturnType<typeof createSearchAnalyticsRepository>;
   };
   services: {
     issue: ReturnType<typeof createIssueService>;
     project: ReturnType<typeof createProjectService>;
     workspace: ReturnType<typeof createWorkspaceService>;
+    workflowEngine: ReturnType<typeof createWorkflowEngine>;
+    sprint: ReturnType<typeof createSprintService>;
+    comment: ReturnType<typeof createCommentService>;
+    search: ReturnType<typeof createSearchService>;
+    searchAggregator: ReturnType<typeof createSearchAggregator>;
+    searchCache: ReturnType<typeof createSearchCache>;
+    searchAnalytics: ReturnType<typeof createSearchAnalyticsService>;
   };
   prisma: ReturnType<typeof getPrismaClient>;
+  redis: RedisClientType;
 }
 
 /**
@@ -40,12 +66,35 @@ export const createApp = () => {
   const app = express();
   const prisma = getPrismaClient();
 
+  // Initialize Redis client with socket configuration
+  const redis = createClient({
+    socket: {
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT || '6379'),
+    },
+    database: parseInt(process.env.REDIS_DB || '0'),
+  }) as unknown as RedisClientType;
+
+  // Connect Redis
+  redis.connect().catch((err) => console.error('Redis connection error:', err));
+
+  // === Logger ===
+  const logger = {
+    info: (msg: string, meta?: Record<string, unknown>) => console.log(`[INFO] ${msg}`, meta || ''),
+    warn: (msg: string, meta?: Record<string, unknown>) => console.warn(`[WARN] ${msg}`, meta || ''),
+  };
+
   // === Repository Layer ===
   const repositories = {
     issue: createIssueRepository(prisma),
     project: createProjectRepository(prisma),
     workspace: createWorkspaceRepository(prisma),
     user: createUserRepository(prisma),
+    workflow: createWorkflowRepository(prisma),
+    sprint: createSprintRepository(prisma),
+    comment: createCommentRepository(prisma),
+    search: createSearchRepository(prisma),
+    searchAnalytics: createSearchAnalyticsRepository(prisma),
   };
 
   // === Service Layer ===
@@ -70,6 +119,48 @@ export const createApp = () => {
       auditService,
       prisma,
     }),
+    workflowEngine: createWorkflowEngine({
+      workflowRepo: repositories.workflow,
+      issueRepo: repositories.issue,
+      logger,
+    }),
+    sprint: createSprintService({
+      sprintRepo: repositories.sprint,
+      projectRepo: repositories.project,
+      auditService,
+      prisma,
+    }),
+    comment: createCommentService({
+      commentRepo: repositories.comment,
+      issueRepo: repositories.issue,
+      projectRepo: repositories.project,
+      workspaceRepo: repositories.workspace,
+      auditService,
+      prisma,
+    }),
+    search: createSearchService({
+      searchRepo: repositories.search,
+      issueRepo: repositories.issue,
+      projectRepo: repositories.project,
+      workspaceRepo: repositories.workspace,
+      prisma,
+    }),
+    searchAggregator: createSearchAggregator({
+      searchService: null as any, // Will be set after service creation
+      issueRepo: repositories.issue,
+      projectRepo: repositories.project,
+      workspaceRepo: repositories.workspace,
+      prisma,
+    }),
+    searchCache: createSearchCache({
+      searchAggregator: null as any, // Will be set after service creation
+      redis,
+      prisma,
+    }),
+    searchAnalytics: createSearchAnalyticsService({
+      analyticsRepo: repositories.searchAnalytics,
+      workspaceRepo: repositories.workspace,
+    }),
   };
 
   // === Middleware ===
@@ -88,7 +179,7 @@ export const createApp = () => {
   });
 
   // === Dependency Injection Context ===
-  const deps: AppDependencies = { repositories, services, prisma };
+  const deps: AppDependencies = { repositories, services, prisma, redis };
 
   // === Authorization Middleware ===
   const auth = createAuthMiddleware(deps);

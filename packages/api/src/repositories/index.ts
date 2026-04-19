@@ -10,6 +10,21 @@ export type { WorkspaceRepository } from './workspace';
 export { createUserRepository } from './user';
 export type { UserRepository } from './user';
 
+export { createWorkflowRepository } from './workflow';
+export type { WorkflowRepository } from './workflow';
+
+export { createSprintRepository } from './sprint';
+export type { SprintRepository } from './sprint';
+
+export { createCommentRepository } from './comment';
+export type { CommentRepository } from './comment';
+
+export { createSearchRepository } from './search';
+export type { SearchRepository } from './search';
+
+export { createSearchAnalyticsRepository } from './search-analytics';
+export type { SearchAnalyticsRepository } from './search-analytics';
+
 /**
  * Create all repositories with dependency injection
  */

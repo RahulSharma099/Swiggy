@@ -1,6 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { AppError } from '@pms/shared';
 import { AppDependencies, AuthMiddleware } from './app';
+import { createWorkflowHandlers } from './handlers/workflow';
+import { createSprintHandlers } from './handlers/sprint';
+import { createCommentHandlers } from './handlers/comment';
+import { createSearchHandlers } from './handlers/search';
+import { createSearchAggregatorHandlers } from './handlers/search-aggregator';
+import { createSearchAnalyticsHandlers } from './handlers/search-analytics';
 
 /**
  * Workspace Routes with service integration and authorization
@@ -375,6 +381,210 @@ export const createIssueRoutes = (deps: AppDependencies, auth: AuthMiddleware) =
   });
 
   return router;
+};
+
+/**
+ * Workflow Routes with service integration
+ */
+export const createWorkflowRoutes = (deps: AppDependencies, auth: AuthMiddleware) => {
+  const router = Router();
+  const workflowHandlers = createWorkflowHandlers({
+    workflowEngine: deps.services.workflowEngine,
+    issueService: deps.services.issue,
+  });
+
+  /**
+   * GET /api/workflows/:projectId/statuses
+   * Get all available statuses for project
+   */
+  router.get('/:projectId/statuses', auth.requireAuth, workflowHandlers.getStatuses);
+
+  /**
+   * GET /api/workflows/:projectId/transitions/:status
+   * Get available transitions from status
+   */
+  router.get(
+    '/:projectId/transitions/:status',
+    auth.requireAuth,
+    workflowHandlers.getTransitions
+  );
+
+  /**
+   * GET /api/issues/:issueId/transitions
+   * Get available transitions for issue
+   */
+  router.get(
+    '/issues/:issueId/transitions',
+    auth.requireAuth,
+    workflowHandlers.getIssueTransitions
+  );
+
+  /**
+   * POST /api/issues/:issueId/transition
+   * Transition issue to new status
+   */
+  router.post(
+    '/issues/:issueId/transition',
+    auth.requireAuth,
+    workflowHandlers.transitionIssue
+  );
+
+  return router;
+};
+
+/**
+ * Sprint Routes with service integration
+ */
+export const createSprintRoutes = (deps: AppDependencies, auth: AuthMiddleware) => {
+  const router = Router();
+  const sprintHandlers = createSprintHandlers({
+    sprintService: deps.services.sprint,
+  });
+
+  /**
+   * POST /api/sprints
+   * Create a new sprint
+   */
+  router.post('/', auth.requireAuth, sprintHandlers.createSprint);
+
+  /**
+   * GET /api/sprints/:sprintId
+   * Get sprint details
+   */
+  router.get('/:sprintId', auth.requireAuth, sprintHandlers.getSprint);
+
+  /**
+   * PUT /api/sprints/:sprintId
+   * Update sprint
+   */
+  router.put('/:sprintId', auth.requireAuth, sprintHandlers.updateSprint);
+
+  /**
+   * POST /api/sprints/:sprintId/start
+   * Start sprint
+   */
+  router.post('/:sprintId/start', auth.requireAuth, sprintHandlers.startSprint);
+
+  /**
+   * POST /api/sprints/:sprintId/complete
+   * Complete sprint
+   */
+  router.post('/:sprintId/complete', auth.requireAuth, sprintHandlers.completeSprint);
+
+  /**
+   * POST /api/sprints/:sprintId/issues/:issueId
+   * Add issue to sprint
+   */
+  router.post(
+    '/:sprintId/issues/:issueId',
+    auth.requireAuth,
+    sprintHandlers.addIssueToSprint
+  );
+
+  /**
+   * DELETE /api/sprints/:sprintId/issues/:issueId
+   * Remove issue from sprint
+   */
+  router.delete(
+    '/:sprintId/issues/:issueId',
+    auth.requireAuth,
+    sprintHandlers.removeIssueFromSprint
+  );
+
+  /**
+   * DELETE /api/sprints/:sprintId
+   * Delete sprint
+   */
+  router.delete('/:sprintId', auth.requireAuth, sprintHandlers.deleteSprint);
+
+  /**
+   * GET /api/projects/:projectId/sprints
+   * List sprints for project
+   */
+  router.get('/project/:projectId', auth.requireAuth, sprintHandlers.listSprints);
+
+  /**
+   * GET /api/projects/:projectId/sprints/active
+   * Get active sprint
+   */
+  router.get('/project/:projectId/active', auth.requireAuth, sprintHandlers.getActiveSprint);
+
+  return router;
+};
+
+/**
+ * Comment Routes with service integration
+ */
+export const createCommentRoutes = (deps: AppDependencies, auth: AuthMiddleware) => {
+  const router = Router();
+  const commentHandlers = createCommentHandlers({
+    commentService: deps.services.comment,
+  });
+
+  /**
+   * POST /api/issues/:issueId/comments
+   * Add comment to issue
+   */
+  router.post('/:issueId/comments', auth.requireAuth, commentHandlers.addComment);
+
+  /**
+   * GET /api/issues/:issueId/comments
+   * Get comments for issue
+   */
+  router.get('/:issueId/comments', auth.requireAuth, commentHandlers.getComments);
+
+  /**
+   * PUT /api/comments/:commentId
+   * Update comment
+   */
+  router.put('/:commentId', auth.requireAuth, commentHandlers.updateComment);
+
+  /**
+   * DELETE /api/comments/:commentId
+   * Delete comment
+   */
+  router.delete('/:commentId', auth.requireAuth, commentHandlers.deleteComment);
+
+  /**
+   * GET /api/comments/user
+   * Get user's comment history
+   */
+  router.get('/user/comments', auth.requireAuth, commentHandlers.getUserComments);
+
+  /**
+   * GET /api/issues/:issueId/comments/search
+   * Search comments
+   */
+  router.get('/:issueId/comments/search', auth.requireAuth, commentHandlers.searchComments);
+
+  /**
+   * GET /api/workspaces/:workspaceId/activity
+   * Get activity feed with recent comments
+   */
+  router.get('/workspace/:workspaceId/activity', auth.requireAuth, commentHandlers.getActivityFeed);
+
+  return router;
+};
+
+/**
+ * Search Routes with advanced filtering and full-text search
+ */
+export const createSearchRoutes = (deps: AppDependencies, auth: AuthMiddleware) => {
+  return createSearchHandlers(deps, auth);
+};
+
+/**
+ * Search Aggregator Routes for cross-project search
+ */
+export const createSearchAggregatorRoutes = (deps: AppDependencies, auth: AuthMiddleware) => {
+  return createSearchAggregatorHandlers(deps, auth);
+};
+
+/**
+ * Search Analytics Routes for search events and analytics
+ */
+export const createSearchAnalyticsRoutes = (deps: AppDependencies, auth: AuthMiddleware) => {
+  return createSearchAnalyticsHandlers(deps, auth);
 };
 
 /**

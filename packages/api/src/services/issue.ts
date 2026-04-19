@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { AppError, ForbiddenError } from '@pms/shared';
+import { AppError, ForbiddenError, eventEmitter, createDomainEvent, DomainEvents } from '@pms/shared';
 import { IssueRepository } from '../repositories/issue';
 import { ProjectRepository } from '../repositories/project';
 import { WorkspaceRepository } from '../repositories/workspace';
@@ -90,6 +90,24 @@ export const createIssueService = (deps: {
       `Issue "${validated.title}" created`
     );
 
+    // Emit domain event for real-time updates
+    eventEmitter.emitEvent(
+      createDomainEvent(
+        DomainEvents.ISSUE_CREATED,
+        'issue',
+        issue.id,
+        userId,
+        {
+          projectId: project.id,
+          workspaceId: project.workspaceId,
+          title: issue.title,
+          type: issue.type,
+          reporterId: issue.reporterId,
+          description: issue.description,
+        }
+      )
+    );
+
     return issue;
   },
 
@@ -174,6 +192,21 @@ export const createIssueService = (deps: {
         changedFields,
         `Issue updated with changes: ${Object.keys(changedFields).join(', ')}`
       );
+
+      // Emit domain event for real-time updates
+      eventEmitter.emitEvent(
+        createDomainEvent(
+          DomainEvents.ISSUE_UPDATED,
+          'issue',
+          issueId,
+          userId,
+          {
+            projectId: project.id,
+            workspaceId: project.workspaceId,
+            changes: changedFields,
+          }
+        )
+      );
     }
 
     return updated;
@@ -219,6 +252,21 @@ export const createIssueService = (deps: {
         { assigneeId },
         `Issue assigned to ${assigneeId}`
       );
+
+      // Emit domain event for real-time updates
+      eventEmitter.emitEvent(
+        createDomainEvent(
+          DomainEvents.ISSUE_ASSIGNED,
+          'issue',
+          issueId,
+          userId,
+          {
+            projectId: project.id,
+            workspaceId: project.workspaceId,
+            assigneeId,
+          }
+        )
+      );
     }
 
     return updated;
@@ -256,6 +304,20 @@ export const createIssueService = (deps: {
         userId,
         { deleted: true },
         `Issue deleted`
+      );
+
+      // Emit domain event for real-time updates
+      eventEmitter.emitEvent(
+        createDomainEvent(
+          DomainEvents.ISSUE_DELETED,
+          'issue',
+          issueId,
+          userId,
+          {
+            projectId: project.id,
+            workspaceId: project.workspaceId,
+          }
+        )
       );
     }
 

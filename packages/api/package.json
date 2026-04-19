@@ -4,11 +4,16 @@
   "description": "REST API server",
   "main": "./dist/index.js",
   "scripts": {
-    "dev": "ts-node src/index.ts",
+    "dev": "tsc-watch --onSuccess \"node dist/index.js\" --project tsconfig.json",
     "build": "tsc",
     "type-check": "tsc --noEmit",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:unit": "jest --testPathPattern=unit",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:coverage": "jest --coverage",
+    "test:verbose": "jest --verbose",
+    "test:debug": "node --inspect-brk node_modules/.bin/jest --runInBand"
   },
   "dependencies": {
     "@pms/shared": "*",
@@ -26,6 +31,7 @@
     "@types/node": "^20.0.0",
     "@types/jest": "^29.0.0",
     "ts-node": "^10.0.0",
+    "tsc-watch": "^6.0.0",
     "jest": "^29.0.0",
     "ts-jest": "^29.0.0",
     "supertest": "^6.3.0",

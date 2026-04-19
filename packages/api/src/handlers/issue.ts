@@ -15,7 +15,7 @@ export const createCreateIssueHandler = (prisma: PrismaClient) => {
       type: z.enum(['story', 'task', 'bug', 'epic', 'sub-task']).default('task'),
       priority: z.number().int().min(1).max(5).default(2),
       storyPoints: z.number().optional(),
-      reporterId: z.string(),
+      reporterId: z.string().optional(),
       assigneeId: z.string().optional(),
     });
 
@@ -33,17 +33,18 @@ export const createCreateIssueHandler = (prisma: PrismaClient) => {
       throw new AppError('NOT_FOUND', 404, 'Project not found');
     }
 
+    const createData = {
+      projectId: parsed.data.projectId,
+      title: parsed.data.title,
+      description: parsed.data.description,
+      type: parsed.data.type,
+      priority: parsed.data.priority,
+      storyPoints: parsed.data.storyPoints,
+      assigneeId: parsed.data.assigneeId,
+    };
+
     const issue = await prisma.issue.create({
-      data: {
-        projectId: parsed.data.projectId,
-        title: parsed.data.title,
-        description: parsed.data.description,
-        type: parsed.data.type,
-        priority: parsed.data.priority,
-        storyPoints: parsed.data.storyPoints,
-        reporterId: parsed.data.reporterId,
-        assigneeId: parsed.data.assigneeId,
-      },
+      data: createData,
       include: {
         reporter: true,
         assignee: true,
