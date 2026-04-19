@@ -1,6 +1,6 @@
-import express from 'express';
-import { createClient, RedisClientType } from 'redis';
-import { getPrismaClient } from '@pms/database';
+import express from "express";
+import { createClient, RedisClientType } from "redis";
+import { getPrismaClient } from "@pms/database";
 import {
   createIssueRepository,
   createProjectRepository,
@@ -11,7 +11,7 @@ import {
   createCommentRepository,
   createSearchRepository,
   createSearchAnalyticsRepository,
-} from './repositories';
+} from "./repositories";
 import {
   createIssueService,
   createProjectService,
@@ -23,9 +23,21 @@ import {
   createSearchAggregator,
   createSearchCache,
   createSearchAnalyticsService,
-} from './services';
-import { createAuditService } from './services/audit';
-import { createAuthMiddleware } from './middleware/auth';
+} from "./services";
+import { createAuditService } from "./services/audit";
+import { createAuthMiddleware } from "./middleware/auth";
+import {
+  createEventBus,
+  createActivityLogHandler,
+
+  createSearchIndexHandler,
+  createNotificationQueueHandler,
+  EventBus,
+} from "./domain/events";
+import {
+  correlationIdMiddleware,
+  requestTimingMiddleware,
+} from "./middleware/correlation-id";
 
 /**
  * Type definitions for dependencies
@@ -56,6 +68,7 @@ export interface AppDependencies {
   };
   prisma: ReturnType<typeof getPrismaClient>;
   redis: RedisClientType;
+  eventBus: EventBus;
 }
 
 /**
@@ -69,19 +82,21 @@ export const createApp = () => {
   // Initialize Redis client with socket configuration
   const redis = createClient({
     socket: {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
+      host: process.env.REDIS_HOST || "localhost",
+      port: parseInt(process.env.REDIS_PORT || "6379"),
     },
-    database: parseInt(process.env.REDIS_DB || '0'),
+    database: parseInt(process.env.REDIS_DB || "0"),
   }) as unknown as RedisClientType;
 
   // Connect Redis
-  redis.connect().catch((err) => console.error('Redis connection error:', err));
+  redis.connect().catch((err) => console.error("Redis connection error:", err));
 
   // === Logger ===
   const logger = {
-    info: (msg: string, meta?: Record<string, unknown>) => console.log(`[INFO] ${msg}`, meta || ''),
-    warn: (msg: string, meta?: Record<string, unknown>) => console.warn(`[WARN] ${msg}`, meta || ''),
+    info: (msg: string, meta?: Record<string, unknown>) =>
+      console.log(`[INFO] ${msg}`, meta || ""),
+    warn: (msg: string, meta?: Record<string, unknown>) =>
+      console.warn(`[WARN] ${msg}`, meta || ""),
   };
 
   // === Repository Layer ===
@@ -166,12 +181,18 @@ export const createApp = () => {
   // === Middleware ===
   app.use(express.json());
 
+  // Add correlation ID for request tracing
+  app.use(correlationIdMiddleware);
+
+  // Add request timing and logging
+  app.use(requestTimingMiddleware);
+
   // Request context middleware - extract user ID from headers
   // In production, this would verify JWT tokens
   app.use((req, res, next) => {
-    const userId = req.headers['x-user-id'] as string;
-    if (!userId && req.path !== '/health') {
-      res.status(401).json({ error: 'Missing user ID' });
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId && req.path !== "/health") {
+      res.status(401).json({ error: "Missing user ID" });
       return;
     }
     (req as any).userId = userId;
@@ -179,7 +200,52 @@ export const createApp = () => {
   });
 
   // === Dependency Injection Context ===
-  const deps: AppDependencies = { repositories, services, prisma, redis };
+  const eventBus = createEventBus();
+
+  // === Event Handlers Registration ===
+  // Register handlers asynchronously - handlers will be subscribed when server starts
+  // This avoids top-level await in module
+  const initializeEventHandlers = async () => {
+    eventBus.subscribe("*", await createActivityLogHandler(auditService));
+    // Note: WebSocket publisher will be injected via middleware after server starts
+    // eventBus.subscribe('*', await createWebSocketBroadcastHandler(publisher));
+    eventBus.subscribe(
+      "issue.created",
+      await createSearchIndexHandler(services.searchCache),
+    );
+    eventBus.subscribe(
+      "issue.updated",
+      await createSearchIndexHandler(services.searchCache),
+    );
+    eventBus.subscribe(
+      "issue.deleted",
+      await createSearchIndexHandler(services.searchCache),
+    );
+    eventBus.subscribe(
+      "comment.added",
+      await createSearchIndexHandler(services.searchCache),
+    );
+    eventBus.subscribe(
+      "comment.deleted",
+      await createSearchIndexHandler(services.searchCache),
+    );
+
+    // Notification queue handler (TODO: integrate with email service)
+    eventBus.subscribe("issue.assigned", await createNotificationQueueHandler());
+    eventBus.subscribe("comment.added", await createNotificationQueueHandler());
+    eventBus.subscribe("issue.created", await createNotificationQueueHandler());
+  };
+
+  const deps: AppDependencies = {
+    repositories,
+    services,
+    prisma,
+    redis,
+    eventBus,
+  };
+
+  // Store initialization function for later call in server.ts
+  (deps as any)._initializeEventHandlers = initializeEventHandlers;
 
   // === Authorization Middleware ===
   const auth = createAuthMiddleware(deps);

@@ -3,14 +3,26 @@
  * Business logic for comments with authorization and event emission
  */
 
-import { PrismaClient, Comment } from '@prisma/client';
-import { AppError, ForbiddenError, eventEmitter, DomainEvents } from '@pms/shared';
-import { CommentRepository } from '../repositories/comment';
-import { IssueRepository } from '../repositories/issue';
-import { ProjectRepository } from '../repositories/project';
-import { WorkspaceRepository } from '../repositories/workspace';
-import { AuditService } from './audit';
-import { z } from 'zod';
+import { PrismaClient, Comment } from "@prisma/client";
+import {
+  AppError,
+  ForbiddenError,
+  eventEmitter,
+  DomainEvents,
+} from "@pms/shared";
+import { CommentRepository } from "../repositories/comment";
+import { IssueRepository } from "../repositories/issue";
+import { ProjectRepository } from "../repositories/project";
+import { WorkspaceRepository } from "../repositories/workspace";
+import { AuditService } from "./audit";
+import { z } from "zod";
+import {
+  getEventBus,
+  CommentAddedEvent,
+  CommentDeletedEvent,
+  generateEventId,
+  generateCorrelationId,
+} from "../domain/events";
 
 export type CommentService = ReturnType<typeof createCommentService>;
 
@@ -24,6 +36,7 @@ export const createCommentService = (deps: {
   workspaceRepo: WorkspaceRepository;
   auditService: AuditService;
   prisma: PrismaClient;
+  correlationId?: string;
 }) => ({
   /**
    * Add comment to issue
@@ -33,7 +46,7 @@ export const createCommentService = (deps: {
     issueId: string,
     content: string,
     userId: string,
-    mentions: string[] = []
+    mentions: string[] = [],
   ): Promise<Comment> {
     // Validate input
     const schema = z.object({
@@ -49,19 +62,19 @@ export const createCommentService = (deps: {
     // Get issue with project info
     const issue = await deps.issueRepo.findById(issueId);
     if (!issue) {
-      throw new AppError('ISSUE_NOT_FOUND', 404, 'Issue not found');
+      throw new AppError("ISSUE_NOT_FOUND", 404, "Issue not found");
     }
 
     // Check authorization - user must be project member
     const isMember = await deps.projectRepo.isMember(issue.projectId, userId);
     if (!isMember) {
-      throw new ForbiddenError('Not a project member');
+      throw new ForbiddenError("Not a project member");
     }
 
     // Get project for workspace info
     const project = await deps.projectRepo.findById(issue.projectId);
     if (!project) {
-      throw new AppError('PROJECT_NOT_FOUND', 404, 'Project not found');
+      throw new AppError("PROJECT_NOT_FOUND", 404, "Project not found");
     }
 
     // Create comment
@@ -69,23 +82,23 @@ export const createCommentService = (deps: {
       issueId,
       userId,
       validated.content,
-      validated.mentions
+      validated.mentions,
     );
 
     // Log activity
     await deps.auditService.logIssueAction(
       issueId,
       project.workspaceId,
-      'commented',
+      "commented",
       userId,
       { mentionedUsers: validated.mentions || [] },
-      `New comment with ${(validated.mentions || []).length} mentions`
+      `New comment with ${(validated.mentions || []).length} mentions`,
     );
 
-    // Emit event for real-time updates
+    // Emit legacy event for backward compatibility
     eventEmitter.emitEvent({
       type: DomainEvents.COMMENT_ADDED,
-      aggregateType: 'comment',
+      aggregateType: "comment",
       aggregateId: comment.id,
       actorId: userId,
       timestamp: new Date(),
@@ -99,6 +112,31 @@ export const createCommentService = (deps: {
       },
     });
 
+    // Emit new domain event to EventBus
+    const eventBus = getEventBus();
+    const commentDomainEvent: CommentAddedEvent = {
+      id: generateEventId(),
+      type: "comment.added",
+      aggregateId: comment.id,
+      aggregateType: "Comment",
+      correlationId: deps.correlationId || generateCorrelationId(),
+      timestamp: new Date(),
+      actorId: userId,
+      workspaceId: project.workspaceId,
+      projectId: issue.projectId,
+      payload: {
+        issueId,
+        content: validated.content,
+        mentionedUserIds: validated.mentions,
+      },
+      metadata: {
+        source: "api",
+      },
+    };
+    await eventBus.publish(commentDomainEvent);
+
+    return comment;
+
     return comment;
   },
 
@@ -110,7 +148,7 @@ export const createCommentService = (deps: {
     commentId: string,
     content: string,
     userId: string,
-    mentions: string[] = []
+    mentions: string[] = [],
   ): Promise<Comment> {
     // Validate input
     const schema = z.object({
@@ -123,46 +161,49 @@ export const createCommentService = (deps: {
     // Get comment
     const comment = await deps.commentRepo.findById(commentId);
     if (!comment) {
-      throw new AppError('COMMENT_NOT_FOUND', 404, 'Comment not found');
+      throw new AppError("COMMENT_NOT_FOUND", 404, "Comment not found");
     }
 
     // Check authorization - only author can edit
     if (comment.authorId !== userId) {
-      throw new ForbiddenError('Only comment author can edit comments');
+      throw new ForbiddenError("Only comment author can edit comments");
     }
 
     // Get issue for audit logging
     const issue = await deps.issueRepo.findById(comment.issueId);
     if (!issue) {
-      throw new AppError('ISSUE_NOT_FOUND', 404, 'Issue not found');
+      throw new AppError("ISSUE_NOT_FOUND", 404, "Issue not found");
     }
 
     const project = await deps.projectRepo.findById(issue.projectId);
     if (!project) {
-      throw new AppError('PROJECT_NOT_FOUND', 404, 'Project not found');
+      throw new AppError("PROJECT_NOT_FOUND", 404, "Project not found");
     }
 
     // Update comment
     const updated = await deps.commentRepo.update(
       commentId,
       validated.content,
-      validated.mentions
+      validated.mentions,
     );
 
     // Log activity
     await deps.auditService.logIssueAction(
       comment.issueId,
       project.workspaceId,
-      'comment_updated',
+      "comment_updated",
       userId,
-      { oldMentions: (comment.mentions as string[]) || [], newMentions: validated.mentions },
-      'Comment edited'
+      {
+        oldMentions: (comment.mentions as string[]) || [],
+        newMentions: validated.mentions,
+      },
+      "Comment edited",
     );
 
     // Emit event
     eventEmitter.emitEvent({
       type: DomainEvents.COMMENT_ADDED,
-      aggregateType: 'comment',
+      aggregateType: "comment",
       aggregateId: commentId,
       actorId: userId,
       timestamp: new Date(),
@@ -171,7 +212,7 @@ export const createCommentService = (deps: {
         projectId: issue.projectId,
         workspaceId: project.workspaceId,
         content: validated.content,
-        action: 'updated',
+        action: "updated",
       },
     });
 
@@ -186,28 +227,33 @@ export const createCommentService = (deps: {
     // Get comment
     const comment = await deps.commentRepo.findById(commentId);
     if (!comment) {
-      throw new AppError('COMMENT_NOT_FOUND', 404, 'Comment not found');
+      throw new AppError("COMMENT_NOT_FOUND", 404, "Comment not found");
     }
 
     // Get issue for authorization and audit
     const issue = await deps.issueRepo.findById(comment.issueId);
     if (!issue) {
-      throw new AppError('ISSUE_NOT_FOUND', 404, 'Issue not found');
+      throw new AppError("ISSUE_NOT_FOUND", 404, "Issue not found");
     }
 
     // Check authorization
     const isAuthor = comment.authorId === userId;
-    const userRole = await deps.projectRepo.getUserRole(issue.projectId, userId);
-    const isLead = userRole && ['lead', 'owner'].includes(userRole);
+    const userRole = await deps.projectRepo.getUserRole(
+      issue.projectId,
+      userId,
+    );
+    const isLead = userRole && ["lead", "owner"].includes(userRole);
 
     if (!isAuthor && !isLead) {
-      throw new ForbiddenError('Only comment author or project lead can delete comments');
+      throw new ForbiddenError(
+        "Only comment author or project lead can delete comments",
+      );
     }
 
     // Get project for audit
     const project = await deps.projectRepo.findById(issue.projectId);
     if (!project) {
-      throw new AppError('PROJECT_NOT_FOUND', 404, 'Project not found');
+      throw new AppError("PROJECT_NOT_FOUND", 404, "Project not found");
     }
 
     // Delete comment
@@ -217,16 +263,16 @@ export const createCommentService = (deps: {
     await deps.auditService.logIssueAction(
       comment.issueId,
       project.workspaceId,
-      'comment_deleted',
+      "comment_deleted",
       userId,
       { deletedCommentId: commentId },
-      'Comment deleted'
+      "Comment deleted",
     );
 
-    // Emit event
+    // Emit legacy event for backward compatibility
     eventEmitter.emitEvent({
       type: DomainEvents.COMMENT_DELETED,
-      aggregateType: 'comment',
+      aggregateType: "comment",
       aggregateId: commentId,
       actorId: userId,
       timestamp: new Date(),
@@ -236,6 +282,28 @@ export const createCommentService = (deps: {
         workspaceId: project.workspaceId,
       },
     });
+
+    // Emit new domain event to EventBus
+    const eventBus = getEventBus();
+    const deleteCommentEvent: CommentDeletedEvent = {
+      id: generateEventId(),
+      type: "comment.deleted",
+      aggregateId: commentId,
+      aggregateType: "Comment",
+      correlationId: deps.correlationId || generateCorrelationId(),
+      timestamp: new Date(),
+      actorId: userId,
+      workspaceId: project.workspaceId,
+      projectId: issue.projectId,
+      payload: {
+        issueId: comment.issueId,
+        content: comment.content,
+      },
+      metadata: {
+        source: "api",
+      },
+    };
+    await eventBus.publish(deleteCommentEvent);
   },
 
   /**
@@ -245,18 +313,18 @@ export const createCommentService = (deps: {
     issueId: string,
     userId: string,
     limit: number = 50,
-    offset: number = 0
+    offset: number = 0,
   ): Promise<{ comments: Comment[]; total: number }> {
     // Verify issue exists and user can access it
     const issue = await deps.issueRepo.findById(issueId);
     if (!issue) {
-      throw new AppError('ISSUE_NOT_FOUND', 404, 'Issue not found');
+      throw new AppError("ISSUE_NOT_FOUND", 404, "Issue not found");
     }
 
     // Verify user is project member
     const isMember = await deps.projectRepo.isMember(issue.projectId, userId);
     if (!isMember) {
-      throw new ForbiddenError('Not a project member');
+      throw new ForbiddenError("Not a project member");
     }
 
     return deps.commentRepo.findByIssueId(issueId, limit, offset);
@@ -268,7 +336,7 @@ export const createCommentService = (deps: {
   async getUserComments(
     userId: string,
     limit: number = 20,
-    offset: number = 0
+    offset: number = 0,
   ): Promise<Comment[]> {
     return deps.commentRepo.findByAuthorId(userId, limit, offset);
   },
@@ -280,18 +348,18 @@ export const createCommentService = (deps: {
     issueId: string,
     searchTerm: string,
     userId: string,
-    limit: number = 20
+    limit: number = 20,
   ): Promise<Comment[]> {
     // Verify issue exists
     const issue = await deps.issueRepo.findById(issueId);
     if (!issue) {
-      throw new AppError('ISSUE_NOT_FOUND', 404, 'Issue not found');
+      throw new AppError("ISSUE_NOT_FOUND", 404, "Issue not found");
     }
 
     // Verify user is project member
     const isMember = await deps.projectRepo.isMember(issue.projectId, userId);
     if (!isMember) {
-      throw new ForbiddenError('Not a project member');
+      throw new ForbiddenError("Not a project member");
     }
 
     return deps.commentRepo.search(issueId, searchTerm, limit);
@@ -304,12 +372,12 @@ export const createCommentService = (deps: {
     workspaceId: string,
     userId: string,
     limit: number = 50,
-    offset: number = 0
+    offset: number = 0,
   ): Promise<Comment[]> {
     // Verify user is workspace member
     const isMember = await deps.workspaceRepo.isMember(workspaceId, userId);
     if (!isMember) {
-      throw new ForbiddenError('Not a workspace member');
+      throw new ForbiddenError("Not a workspace member");
     }
 
     return deps.commentRepo.findRecentByWorkspace(workspaceId, limit, offset);

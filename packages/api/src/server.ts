@@ -22,6 +22,14 @@ const PORT = process.env.PORT || 3000;
 const main = async () => {
   const { app, deps, auth } = createApp();
 
+  // === Initialize Event Handlers ===
+  // Register domain event handlers for activity log, caching, etc.
+  const initializeEventHandlers = (deps as any)._initializeEventHandlers;
+  if (initializeEventHandlers) {
+    await initializeEventHandlers();
+    console.log('✅ Event handlers registered');
+  }
+
   // === WebSocket Event Publishing ===
   // This bridges API events to WebSocket clients
   await setupWebSocketPublishing();
