@@ -64,7 +64,7 @@ const main = async () => {
   const deepHealthHandler = createDeepHealthCheckHandler(
     deps.prisma,
     deps.redis,
-    (deps as any).eventBus
+    (deps as any).eventBus,
   );
 
   app.get("/health/live", livenessHandler);
@@ -96,12 +96,14 @@ const main = async () => {
   const server = app.listen(PORT, async () => {
     console.log(`✅ API server running on http://localhost:${PORT}`);
     console.log(
-      `\n📋 Health Checks:\n  Liveness:  GET http://localhost:${PORT}/health/live\n  Readiness: GET http://localhost:${PORT}/health/ready\n  Deep:      GET http://localhost:${PORT}/health/deep`
+      `\n📋 Health Checks:\n  Liveness:  GET http://localhost:${PORT}/health/live\n  Readiness: GET http://localhost:${PORT}/health/ready\n  Deep:      GET http://localhost:${PORT}/health/deep`,
     );
-    console.log(`� Metrics:\n  Prometheus: GET http://localhost:${PORT}/metrics\n  JSON:       GET http://localhost:${PORT}/metrics/json\n  Summary:    GET http://localhost:${PORT}/metrics/summary\n  Events:     GET http://localhost:${PORT}/metrics/events`);
+    console.log(
+      `� Metrics:\n  Prometheus: GET http://localhost:${PORT}/metrics\n  JSON:       GET http://localhost:${PORT}/metrics/json\n  Summary:    GET http://localhost:${PORT}/metrics/summary\n  Events:     GET http://localhost:${PORT}/metrics/events`,
+    );
     console.log(`�📋 API Health: GET http://localhost:${PORT}/api/health`);
     console.log(
-      `📖 Routes loaded: workspaces, projects, issues, workflows, sprints, comments, search, search-agg, search-analytics\n`
+      `📖 Routes loaded: workspaces, projects, issues, workflows, sprints, comments, search, search-agg, search-analytics\n`,
     );
 
     // Setup graceful shutdown handlers
@@ -109,7 +111,7 @@ const main = async () => {
       gracefulShutdown,
       deps.prisma,
       deps.redis,
-      (deps as any).metricsCollector
+      (deps as any).metricsCollector,
     );
 
     // Register server for graceful shutdown
@@ -119,7 +121,7 @@ const main = async () => {
   // === Enhanced Graceful Shutdown ===
   const gracefulShutdownHandler = async (signal: string) => {
     console.log(`\n📍 Received ${signal} signal, shutting down gracefully...`);
-    
+
     server.close(async () => {
       try {
         await gracefulShutdown.shutdown({

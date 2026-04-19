@@ -1,59 +1,51 @@
 /**
  * k6 Load Test - API CRUD Operations
- * 
+ *
  * Tests: Create, Read, Update operations on resources
  * Measures: Business logic performance, database load
- * 
+ *
  * Run with: k6 run load-tests/05-api-crud.js
  */
 
-import http from 'k6/http';
-import { check, group, sleep } from 'k6';
-import { Rate, Trend, Counter } from 'k6/metrics';
+import http from "k6/http";
+import { check, group, sleep } from "k6";
+import { Rate, Trend, Counter } from "k6/metrics";
 
-const errorRate = new Rate('crud_errors');
-const requestDuration = new Trend('crud_request_duration');
-const createdResources = new Counter('crud_created');
-const failedOperations = new Counter('crud_failed');
+const errorRate = new Rate("crud_errors");
+const requestDuration = new Trend("crud_request_duration");
+const createdResources = new Counter("crud_created");
+const failedOperations = new Counter("crud_failed");
 
 export const options = {
   stages: [
-    { duration: '10s', target: 5 },    // Warm up
-    { duration: '30s', target: 10 },   // Ramp to 10 VUs
-    { duration: '30s', target: 10 },   // Sustain at 10 VUs
-    { duration: '10s', target: 0 },    // Cool down
+    { duration: "10s", target: 5 }, // Warm up
+    { duration: "30s", target: 10 }, // Ramp to 10 VUs
+    { duration: "30s", target: 10 }, // Sustain at 10 VUs
+    { duration: "10s", target: 0 }, // Cool down
   ],
   thresholds: {
-    'http_req_duration': [
-      'p(75)<600',
-      'p(95)<1200',
-      'p(99)<2000',
-    ],
-    'crud_errors': ['rate<0.1'],
+    http_req_duration: ["p(75)<600", "p(95)<1200", "p(99)<2000"],
+    crud_errors: ["rate<0.1"],
   },
 };
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = "http://localhost:3000";
 
 // Helper function to create a test workspace
 function createTestWorkspace(userId) {
   const payload = JSON.stringify({
     name: `Test Workspace ${__VU}-${__ITER}-${Date.now()}`,
-    description: 'Load test workspace',
+    description: "Load test workspace",
   });
 
   const params = {
     headers: {
-      'Content-Type': 'application/json',
-      'x-user-id': userId,
+      "Content-Type": "application/json",
+      "x-user-id": userId,
     },
   };
 
-  const res = http.post(
-    `${BASE_URL}/api/workspaces`,
-    payload,
-    params
-  );
+  const res = http.post(`${BASE_URL}/api/workspaces`, payload, params);
 
   return res;
 }
@@ -62,7 +54,7 @@ function createTestWorkspace(userId) {
 function listWorkspaces(userId) {
   const params = {
     headers: {
-      'x-user-id': userId,
+      "x-user-id": userId,
     },
   };
 
@@ -73,25 +65,22 @@ function listWorkspaces(userId) {
 function getWorkspaceDetails(workspaceId, userId) {
   const params = {
     headers: {
-      'x-user-id': userId,
+      "x-user-id": userId,
     },
   };
 
-  return http.get(
-    `${BASE_URL}/api/workspaces/${workspaceId}`,
-    params
-  );
+  return http.get(`${BASE_URL}/api/workspaces/${workspaceId}`, params);
 }
 
 export default function () {
   const userId = `user-${__VU}`;
 
-  group('Workspace CRUD Operations', () => {
+  group("Workspace CRUD Operations", () => {
     // READ: List workspaces
     let res = listWorkspaces(userId);
     check(res, {
-      'list workspaces status 200': (r) => r.status === 200,
-      'list workspaces response time < 300ms': (r) => r.timings.duration < 300,
+      "list workspaces status 200": (r) => r.status === 200,
+      "list workspaces response time < 300ms": (r) => r.timings.duration < 300,
     });
 
     if (res.status !== 200) {
@@ -106,8 +95,8 @@ export default function () {
     // CREATE: Create a new workspace
     res = createTestWorkspace(userId);
     check(res, {
-      'create workspace status 201': (r) => r.status === 201,
-      'create workspace response time < 500ms': (r) => r.timings.duration < 500,
+      "create workspace status 201": (r) => r.status === 201,
+      "create workspace response time < 500ms": (r) => r.timings.duration < 500,
     });
 
     if (res.status === 201) {
@@ -124,8 +113,9 @@ export default function () {
         // READ: Get the created workspace details
         res = getWorkspaceDetails(workspaceId, userId);
         check(res, {
-          'get workspace status 200': (r) => r.status === 200,
-          'get workspace response time < 300ms': (r) => r.timings.duration < 300,
+          "get workspace status 200": (r) => r.status === 200,
+          "get workspace response time < 300ms": (r) =>
+            r.timings.duration < 300,
         });
 
         if (res.status !== 200) {
@@ -136,7 +126,7 @@ export default function () {
         }
       } catch (e) {
         failedOperations.add(1);
-        console.error('Failed to parse created workspace:', e);
+        console.error("Failed to parse created workspace:", e);
       }
     } else {
       errorRate.add(1);
@@ -144,11 +134,11 @@ export default function () {
     }
   });
 
-  group('Health & Metrics During Operations', () => {
+  group("Health & Metrics During Operations", () => {
     // Check system health during operations
     const res = http.get(`${BASE_URL}/health/deep`);
     check(res, {
-      'system health ok during load': (r) => r.status === 200,
+      "system health ok during load": (r) => r.status === 200,
     });
 
     if (res.status !== 200) {

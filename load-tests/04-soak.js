@@ -1,42 +1,42 @@
 /**
  * k6 Load Test - Soak Test
- * 
+ *
  * Tests: Sustained load over extended period
  * Measures: Memory leaks, connection degradation, sustained throughput
- * 
+ *
  * Run with: k6 run --duration 5m load-tests/04-soak.js
  */
 
-import http from 'k6/http';
-import { check, group, sleep } from 'k6';
-import { Rate, Trend, Counter } from 'k6/metrics';
+import http from "k6/http";
+import { check, group, sleep } from "k6";
+import { Rate, Trend, Counter } from "k6/metrics";
 
-const errorRate = new Rate('soak_errors');
-const requestDuration = new Trend('soak_request_duration');
-const totalRequests = new Counter('soak_total_requests');
-const connectionErrors = new Counter('soak_connection_errors');
+const errorRate = new Rate("soak_errors");
+const requestDuration = new Trend("soak_request_duration");
+const totalRequests = new Counter("soak_total_requests");
+const connectionErrors = new Counter("soak_connection_errors");
 
 export const options = {
   vus: 15,
-  duration: '5m',           // 5 minute soak test
+  duration: "5m", // 5 minute soak test
   thresholds: {
-    'http_req_duration': [
-      'p(50)<300',          // 50% < 300ms
-      'p(90)<800',          // 90% < 800ms
-      'p(95)<1000',         // 95% < 1000ms
+    http_req_duration: [
+      "p(50)<300", // 50% < 300ms
+      "p(90)<800", // 90% < 800ms
+      "p(95)<1000", // 95% < 1000ms
     ],
-    'soak_errors': ['rate<0.05'],           // < 5% errors
-    'soak_connection_errors': ['value<10'], // < 10 connection errors
+    soak_errors: ["rate<0.05"], // < 5% errors
+    soak_connection_errors: ["value<10"], // < 10 connection errors
   },
 };
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = "http://localhost:3000";
 
 export default function () {
-  group('Sustained Load Pattern', () => {
+  group("Sustained Load Pattern", () => {
     const headers = {
-      'Content-Type': 'application/json',
-      'x-user-id': `user-${__VU}`,
+      "Content-Type": "application/json",
+      "x-user-id": `user-${__VU}`,
     };
 
     // Cycle through endpoints to simulate real usage
@@ -50,16 +50,16 @@ export default function () {
 
     // Pick a random endpoint
     const endpoint = endpoints[Math.floor(Math.random() * endpoints.length)];
-    
+
     try {
       const res = endpoint();
       totalRequests.add(1);
 
       const isSuccess = res.status === 200;
       check(res, {
-        'response ok': (r) => r.status === 200,
-        'not timeout': (r) => r.status !== 504,
-        'response time reasonable': (r) => r.timings.duration < 1000,
+        "response ok": (r) => r.status === 200,
+        "not timeout": (r) => r.status !== 504,
+        "response time reasonable": (r) => r.timings.duration < 1000,
       });
 
       if (!isSuccess) {

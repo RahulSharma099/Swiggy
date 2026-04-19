@@ -7,18 +7,18 @@
  * - /health/deep: Deep health check (all systems operational?)
  */
 
-import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { RedisClientType } from 'redis';
-import { EventBus } from '../domain/events';
+import { Request, Response } from "express";
+import { PrismaClient } from "@prisma/client";
+import { RedisClientType } from "redis";
+import { EventBus } from "../domain/events";
 
 interface HealthCheckResult {
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: "healthy" | "degraded" | "unhealthy";
   timestamp: string;
   uptime: number;
   checks: {
     [key: string]: {
-      status: 'ok' | 'warning' | 'error';
+      status: "ok" | "warning" | "error";
       latency?: number;
       error?: string;
     };
@@ -35,7 +35,7 @@ export const createLivenessProbeHandler = () => {
 
   return async (_req: Request, res: Response): Promise<void> => {
     res.json({
-      status: 'alive',
+      status: "alive",
       uptime: Math.floor((Date.now() - startTime) / 1000),
       timestamp: new Date().toISOString(),
     });
@@ -49,13 +49,13 @@ export const createLivenessProbeHandler = () => {
  */
 export const createReadinessProbeHandler = (
   prisma: PrismaClient,
-  redis: RedisClientType
+  redis: RedisClientType,
 ) => {
   const startTime = Date.now();
 
   return async (_req: Request, res: Response): Promise<void> => {
     const result: HealthCheckResult = {
-      status: 'healthy',
+      status: "healthy",
       timestamp: new Date().toISOString(),
       uptime: Math.floor((Date.now() - startTime) / 1000),
       checks: {},
@@ -67,13 +67,13 @@ export const createReadinessProbeHandler = (
       const start = Date.now();
       await (prisma as any).$queryRaw`SELECT 1`;
       dbLatency = Date.now() - start;
-      result.checks.database = { status: 'ok', latency: dbLatency };
+      result.checks.database = { status: "ok", latency: dbLatency };
     } catch (error) {
       result.checks.database = {
-        status: 'error',
+        status: "error",
         error: `Database unreachable: ${(error as any).message}`,
       };
-      result.status = 'unhealthy';
+      result.status = "unhealthy";
     }
 
     // Check Redis
@@ -82,17 +82,17 @@ export const createReadinessProbeHandler = (
       const start = Date.now();
       await redis.ping();
       redisLatency = Date.now() - start;
-      result.checks.redis = { status: 'ok', latency: redisLatency };
+      result.checks.redis = { status: "ok", latency: redisLatency };
     } catch (error) {
       result.checks.redis = {
-        status: 'error',
+        status: "error",
         error: `Redis unreachable: ${(error as any).message}`,
       };
-      result.status = 'unhealthy';
+      result.status = "unhealthy";
     }
 
     // Return appropriate HTTP status
-    const statusCode = result.status === 'healthy' ? 200 : 503;
+    const statusCode = result.status === "healthy" ? 200 : 503;
     res.status(statusCode).json(result);
   };
 };
@@ -110,13 +110,13 @@ export const createReadinessProbeHandler = (
 export const createDeepHealthCheckHandler = (
   prisma: PrismaClient,
   redis: RedisClientType,
-  eventBus: EventBus
+  eventBus: EventBus,
 ) => {
   const startTime = Date.now();
 
   return async (_req: Request, res: Response): Promise<void> => {
     const result: HealthCheckResult = {
-      status: 'healthy',
+      status: "healthy",
       timestamp: new Date().toISOString(),
       uptime: Math.floor((Date.now() - startTime) / 1000),
       checks: {},
@@ -130,20 +130,20 @@ export const createDeepHealthCheckHandler = (
 
       if (latency > 100) {
         result.checks.database = {
-          status: 'warning',
+          status: "warning",
           latency,
           error: `Database slow (${latency}ms > 100ms threshold)`,
         };
-        result.status = 'degraded';
+        result.status = "degraded";
       } else {
-        result.checks.database = { status: 'ok', latency };
+        result.checks.database = { status: "ok", latency };
       }
     } catch (error) {
       result.checks.database = {
-        status: 'error',
+        status: "error",
         error: `Database error: ${(error as any).message}`,
       };
-      result.status = 'unhealthy';
+      result.status = "unhealthy";
     }
 
     // 2. Database - Connection Pool
@@ -154,13 +154,13 @@ export const createDeepHealthCheckHandler = (
       const latency = Date.now() - start;
 
       result.checks.database_pool = {
-        status: 'ok',
+        status: "ok",
         latency,
       };
     } catch (error) {
       result.checks.database_pool = {
-        status: 'warning',
-        error: 'Unable to check connection pool',
+        status: "warning",
+        error: "Unable to check connection pool",
       };
     }
 
@@ -172,61 +172,64 @@ export const createDeepHealthCheckHandler = (
 
       if (latency > 50) {
         result.checks.redis = {
-          status: 'warning',
+          status: "warning",
           latency,
           error: `Redis slow (${latency}ms > 50ms threshold)`,
         };
-        result.status = 'degraded';
+        result.status = "degraded";
       } else {
-        result.checks.redis = { status: 'ok', latency };
+        result.checks.redis = { status: "ok", latency };
       }
     } catch (error) {
       result.checks.redis = {
-        status: 'error',
+        status: "error",
         error: `Redis error: ${(error as any).message}`,
       };
-      result.status = 'unhealthy';
+      result.status = "unhealthy";
     }
 
     // 4. Redis - Memory Usage
     try {
-      await redis.info('memory');
+      await redis.info("memory");
       // Memory info retrieved, check is successful
       result.checks.redis_memory = {
-        status: 'ok',
+        status: "ok",
       };
     } catch (error) {
       result.checks.redis_memory = {
-        status: 'warning',
-        error: 'Unable to check Redis memory',
+        status: "warning",
+        error: "Unable to check Redis memory",
       };
     }
 
     // 5. Event System - EventBus operational
     try {
       const handlers = eventBus.getHandlers();
-      const handlerCount = Array.from(handlers.values()).reduce((acc, h) => acc + h.length, 0);
+      const handlerCount = Array.from(handlers.values()).reduce(
+        (acc, h) => acc + h.length,
+        0,
+      );
 
       result.checks.event_system = {
-        status: handlerCount > 0 ? 'ok' : 'warning',
-        error: handlerCount === 0 ? 'No event handlers registered' : undefined,
+        status: handlerCount > 0 ? "ok" : "warning",
+        error: handlerCount === 0 ? "No event handlers registered" : undefined,
       };
 
       if (handlerCount === 0) {
-        result.status = 'degraded';
+        result.status = "degraded";
       }
     } catch (error) {
       result.checks.event_system = {
-        status: 'error',
+        status: "error",
         error: `Event system check failed: ${(error as any).message}`,
       };
-      result.status = 'unhealthy';
+      result.status = "unhealthy";
     }
 
     // 6. Cache Consistency - Test read/write
     try {
       const testKey = `health-check-${Date.now()}`;
-      const testValue = 'healthy';
+      const testValue = "healthy";
 
       await redis.setEx(testKey, 10, testValue);
       const retrieved = await redis.get(testKey);
@@ -234,19 +237,19 @@ export const createDeepHealthCheckHandler = (
 
       if (retrieved !== testValue) {
         result.checks.cache_consistency = {
-          status: 'error',
-          error: 'Cache write/read mismatch',
+          status: "error",
+          error: "Cache write/read mismatch",
         };
-        result.status = 'unhealthy';
+        result.status = "unhealthy";
       } else {
-        result.checks.cache_consistency = { status: 'ok' };
+        result.checks.cache_consistency = { status: "ok" };
       }
     } catch (error) {
       result.checks.cache_consistency = {
-        status: 'error',
+        status: "error",
         error: `Cache test failed: ${(error as any).message}`,
       };
-      result.status = 'unhealthy';
+      result.status = "unhealthy";
     }
 
     // 7. Slow Query Detection
@@ -254,17 +257,22 @@ export const createDeepHealthCheckHandler = (
       // Get slowest recent queries from app metrics (if tracking)
       // For now, just mark as monitored
       result.checks.slow_queries = {
-        status: 'ok',
+        status: "ok",
       };
     } catch (error) {
       result.checks.slow_queries = {
-        status: 'warning',
-        error: 'Unable to check slow queries',
+        status: "warning",
+        error: "Unable to check slow queries",
       };
     }
 
     // Return appropriate HTTP status
-    const statusCode = result.status === 'healthy' ? 200 : result.status === 'degraded' ? 200 : 503;
+    const statusCode =
+      result.status === "healthy"
+        ? 200
+        : result.status === "degraded"
+          ? 200
+          : 503;
     res.status(statusCode).json(result);
   };
 };
@@ -279,7 +287,7 @@ export const createSimpleHealthHandler = () => {
   return async (_req: Request, res: Response): Promise<void> => {
     res.json({
       success: true,
-      message: 'API is healthy',
+      message: "API is healthy",
       timestamp: new Date().toISOString(),
       uptime: Math.floor((Date.now() - startTime) / 1000),
     });

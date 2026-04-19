@@ -33,7 +33,11 @@ export class MetricsCollector {
   /**
    * Add a histogram value
    */
-  recordHistogram(name: string, value: number, labels?: Record<string, string>): void {
+  recordHistogram(
+    name: string,
+    value: number,
+    labels?: Record<string, string>,
+  ): void {
     const key = this.buildKey(name, labels);
     if (!this.histograms.has(key)) {
       this.histograms.set(key, []);
@@ -56,56 +60,57 @@ export class MetricsCollector {
    * Get all metrics in Prometheus text format
    */
   getAllMetrics(): string {
-    let output = '';
+    let output = "";
 
     // Counters
-    output += '# HELP http_requests_total Total HTTP requests\n';
-    output += '# TYPE http_requests_total counter\n';
+    output += "# HELP http_requests_total Total HTTP requests\n";
+    output += "# TYPE http_requests_total counter\n";
     for (const [key, value] of this.counters) {
-      if (key.includes('http_')) {
+      if (key.includes("http_")) {
         output += `${key} ${value}\n`;
       }
     }
 
     // Other counters
-    output += '# HELP issues_created_total Total issues created\n';
-    output += '# TYPE issues_created_total counter\n';
+    output += "# HELP issues_created_total Total issues created\n";
+    output += "# TYPE issues_created_total counter\n";
     for (const [key, value] of this.counters) {
-      if (key.includes('issue_')) {
+      if (key.includes("issue_")) {
         output += `${key} ${value}\n`;
       }
     }
 
-    output += '# HELP events_published_total Total events published\n';
-    output += '# TYPE events_published_total counter\n';
+    output += "# HELP events_published_total Total events published\n";
+    output += "# TYPE events_published_total counter\n";
     for (const [key, value] of this.counters) {
-      if (key.includes('event_')) {
+      if (key.includes("event_")) {
         output += `${key} ${value}\n`;
       }
     }
 
     // Gauges
-    output += '# HELP websocket_connections_active Active WebSocket connections\n';
-    output += '# TYPE websocket_connections_active gauge\n';
+    output +=
+      "# HELP websocket_connections_active Active WebSocket connections\n";
+    output += "# TYPE websocket_connections_active gauge\n";
     for (const [key, value] of this.gauges) {
-      if (key.includes('websocket_')) {
+      if (key.includes("websocket_")) {
         output += `${key} ${value}\n`;
       }
     }
 
-    output += '# HELP db_pool_connections_active Active database connections\n';
-    output += '# TYPE db_pool_connections_active gauge\n';
+    output += "# HELP db_pool_connections_active Active database connections\n";
+    output += "# TYPE db_pool_connections_active gauge\n";
     for (const [key, value] of this.gauges) {
-      if (key.includes('db_')) {
+      if (key.includes("db_")) {
         output += `${key} ${value}\n`;
       }
     }
 
     // Histograms (percentiles)
-    output += '# HELP request_duration_milliseconds HTTP request duration\n';
-    output += '# TYPE request_duration_milliseconds histogram\n';
+    output += "# HELP request_duration_milliseconds HTTP request duration\n";
+    output += "# TYPE request_duration_milliseconds histogram\n";
     for (const [key, values] of this.histograms) {
-      if (key.includes('request_duration')) {
+      if (key.includes("request_duration")) {
         const sorted = values.sort((a, b) => a - b);
 
         output += `${key}_bucket{le="100"} ${sorted.filter((v) => v <= 100).length}\n`;
@@ -116,10 +121,10 @@ export class MetricsCollector {
       }
     }
 
-    output += '# HELP query_duration_milliseconds Database query duration\n';
-    output += '# TYPE query_duration_milliseconds histogram\n';
+    output += "# HELP query_duration_milliseconds Database query duration\n";
+    output += "# TYPE query_duration_milliseconds histogram\n";
     for (const [key, values] of this.histograms) {
-      if (key.includes('query_duration')) {
+      if (key.includes("query_duration")) {
         const sorted = values.sort((a, b) => a - b);
 
         output += `${key}_bucket{le="10"} ${sorted.filter((v) => v <= 10).length}\n`;
@@ -186,7 +191,7 @@ export class MetricsCollector {
 
     const labelStr = Object.entries(labels)
       .map(([k, v]) => `${k}="${v}"`)
-      .join(',');
+      .join(",");
 
     return `${name}{${labelStr}}`;
   }
@@ -204,7 +209,9 @@ export function createMetricsCollector(): MetricsCollector {
 
 export function getMetricsCollector(): MetricsCollector {
   if (!metricsInstance) {
-    throw new Error('MetricsCollector not initialized. Call createMetricsCollector() first.');
+    throw new Error(
+      "MetricsCollector not initialized. Call createMetricsCollector() first.",
+    );
   }
   return metricsInstance;
 }

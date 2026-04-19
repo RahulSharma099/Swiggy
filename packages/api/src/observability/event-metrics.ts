@@ -3,17 +3,19 @@
  *
  * Helper functions for tracking event system metrics
  * Track:
- * - Event count by type  
+ * - Event count by type
  * - Handler execution time
  * - Handler errors
  */
 
-import { MetricsCollector } from './metrics';
+import { MetricsCollector } from "./metrics";
 
 /**
  * Get event metrics summary
  */
-export function getEventMetricsSummary(_metrics: MetricsCollector): Record<string, any> {
+export function getEventMetricsSummary(
+  _metrics: MetricsCollector,
+): Record<string, any> {
   return {
     events: {
       published: 0, // Will be populated from metrics
@@ -35,4 +37,3 @@ export function getEventMetricsSummary(_metrics: MetricsCollector): Record<strin
     },
   };
 }
-

@@ -37,7 +37,10 @@ import {
   correlationIdMiddleware,
   requestTimingMiddleware,
 } from "./middleware/correlation-id";
-import { MetricsCollector, createMetricsCollector } from "./observability/metrics";
+import {
+  MetricsCollector,
+  createMetricsCollector,
+} from "./observability/metrics";
 import { createRequestMetricsMiddleware } from "./observability/request-metrics";
 
 /**

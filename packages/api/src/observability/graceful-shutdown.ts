@@ -11,11 +11,11 @@
  * 7. Exit process
  */
 
-import { Server } from 'http';
-import { WebSocketServer } from 'ws';
-import { PrismaClient } from '@prisma/client';
-import { RedisClientType } from 'redis';
-import { MetricsCollector } from './metrics';
+import { Server } from "http";
+import { WebSocketServer } from "ws";
+import { PrismaClient } from "@prisma/client";
+import { RedisClientType } from "redis";
+import { MetricsCollector } from "./metrics";
 
 interface ShutdownOptions {
   timeout?: number; // Total shutdown timeout in ms (default: 60s)
@@ -31,17 +31,22 @@ export class GracefulShutdown {
   private activeConnections = new Set<NodeJS.Socket>();
   private activeRequests = new Map<string, Promise<void>>();
 
-  constructor(private logger: { error: (msg: string) => void; info: (msg: string) => void }) {}
+  constructor(
+    private logger: {
+      error: (msg: string) => void;
+      info: (msg: string) => void;
+    },
+  ) {}
 
   /**
    * Register a server for graceful shutdown
    */
   public registerServer(httpServer: Server): void {
     // Track all connections
-    httpServer.on('connection', (socket) => {
+    httpServer.on("connection", (socket) => {
       this.activeConnections.add(socket);
 
-      socket.on('close', () => {
+      socket.on("close", () => {
         this.activeConnections.delete(socket);
       });
     });
@@ -50,15 +55,20 @@ export class GracefulShutdown {
   /**
    * Register a WebSocket server for graceful shutdown
    */
-  public registerWebSocketServer(wss: WebSocketServer, options?: ShutdownOptions): void {
+  public registerWebSocketServer(
+    wss: WebSocketServer,
+    options?: ShutdownOptions,
+  ): void {
     const closeCode = options?.websocketCloseCode ?? 1001; // Service Restart
 
     // When shutdown starts, notify all WebSocket clients
     this.onShutdown(async () => {
-      this.logger.info(`[Graceful Shutdown] Closing ${wss.clients.size} WebSocket connections...`);
+      this.logger.info(
+        `[Graceful Shutdown] Closing ${wss.clients.size} WebSocket connections...`,
+      );
 
       for (const client of wss.clients) {
-        client.close(closeCode, 'Server shutting down');
+        client.close(closeCode, "Server shutting down");
       }
     });
   }
@@ -80,7 +90,7 @@ export class GracefulShutdown {
    */
   public async shutdown(options: ShutdownOptions = {}): Promise<void> {
     if (this.isShuttingDown) {
-      this.logger.info('[Graceful Shutdown] Already shutting down...');
+      this.logger.info("[Graceful Shutdown] Already shutting down...");
       return;
     }
 
@@ -92,7 +102,9 @@ export class GracefulShutdown {
 
     try {
       // Phase 1: Stop accepting new connections
-      this.logger.info('[Graceful Shutdown] Phase 1: Stopping acceptance of new connections...');
+      this.logger.info(
+        "[Graceful Shutdown] Phase 1: Stopping acceptance of new connections...",
+      );
       // Close all idle connections (gracefully)
       for (const socket of this.activeConnections) {
         // Mark connection for closure
@@ -103,7 +115,7 @@ export class GracefulShutdown {
 
       // Phase 2: Wait for in-flight requests to complete
       this.logger.info(
-        `[Graceful Shutdown] Phase 2: Waiting for ${this.activeRequests.size} in-flight requests (timeout: ${drainTimeout}ms)...`
+        `[Graceful Shutdown] Phase 2: Waiting for ${this.activeRequests.size} in-flight requests (timeout: ${drainTimeout}ms)...`,
       );
 
       const drainPromises = Array.from(this.activeRequests.values());
@@ -113,39 +125,43 @@ export class GracefulShutdown {
         await Promise.race([
           Promise.all(drainPromises),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Drain timeout')), drainTimeout)
+            setTimeout(() => reject(new Error("Drain timeout")), drainTimeout),
           ),
         ]);
         const drainDuration = Date.now() - drainStart;
         this.logger.info(
-          `[Graceful Shutdown] Phase 2: All requests completed in ${drainDuration}ms`
+          `[Graceful Shutdown] Phase 2: All requests completed in ${drainDuration}ms`,
         );
       } catch (error) {
         const drainDuration = Date.now() - drainStart;
         this.logger.error(
-          `[Graceful Shutdown] Phase 2: Drain timeout or error after ${drainDuration}ms: ${(error as any).message}`
+          `[Graceful Shutdown] Phase 2: Drain timeout or error after ${drainDuration}ms: ${(error as any).message}`,
         );
       }
 
       // Phase 3: Call shutdown handlers
       this.logger.info(
-        `[Graceful Shutdown] Phase 3: Running ${this.handler.length} shutdown handlers...`
+        `[Graceful Shutdown] Phase 3: Running ${this.handler.length} shutdown handlers...`,
       );
 
       for (const handler of this.handler) {
         try {
           await handler();
         } catch (error) {
-          this.logger.error(`[Graceful Shutdown] Handler error: ${(error as any).message}`);
+          this.logger.error(
+            `[Graceful Shutdown] Handler error: ${(error as any).message}`,
+          );
         }
       }
 
       const totalDuration = Date.now() - startTime;
       this.logger.info(
-        `[Graceful Shutdown] Complete in ${totalDuration}ms (timeout was ${timeout}ms)`
+        `[Graceful Shutdown] Complete in ${totalDuration}ms (timeout was ${timeout}ms)`,
       );
     } catch (error) {
-      this.logger.error(`[Graceful Shutdown] Unexpected error: ${(error as any).message}`);
+      this.logger.error(
+        `[Graceful Shutdown] Unexpected error: ${(error as any).message}`,
+      );
     }
   }
 
@@ -182,27 +198,29 @@ export async function setupGracefulShutdownHandlers(
   gracefulShutdown: GracefulShutdown,
   _prisma: PrismaClient,
   redis: RedisClientType,
-  metrics?: MetricsCollector
+  metrics?: MetricsCollector,
 ): Promise<void> {
   // Close database connections
   gracefulShutdown.onShutdown(async () => {
-    console.log('[Graceful Shutdown] Closing database connections...');
+    console.log("[Graceful Shutdown] Closing database connections...");
     // Prisma handles this automatically
   });
 
   // Close Redis connections
   gracefulShutdown.onShutdown(async () => {
-    console.log('[Graceful Shutdown] Closing Redis connections...');
+    console.log("[Graceful Shutdown] Closing Redis connections...");
     await redis.quit();
   });
 
   // Flush metrics
   if (metrics) {
     gracefulShutdown.onShutdown(async () => {
-      console.log('[Graceful Shutdown] Flushing metrics...');
+      console.log("[Graceful Shutdown] Flushing metrics...");
       const metricsData = metrics.getMetricsJSON();
       // TODO: Send metrics to external service (e.g., Prometheus pushgateway)
-      console.log(`[Graceful Shutdown] Metrics flushed: ${Object.keys(metricsData).length} metrics`);
+      console.log(
+        `[Graceful Shutdown] Metrics flushed: ${Object.keys(metricsData).length} metrics`,
+      );
     });
   }
 
@@ -212,14 +230,14 @@ export async function setupGracefulShutdownHandlers(
     error: (msg: string) => console.error(msg),
   };
 
-  process.on('SIGTERM', async () => {
-    logger.info('[Graceful Shutdown] Received SIGTERM signal');
+  process.on("SIGTERM", async () => {
+    logger.info("[Graceful Shutdown] Received SIGTERM signal");
     await gracefulShutdown.shutdown({ timeout: 60000, drainTimeout: 30000 });
     process.exit(0);
   });
 
-  process.on('SIGINT', async () => {
-    logger.info('[Graceful Shutdown] Received SIGINT signal');
+  process.on("SIGINT", async () => {
+    logger.info("[Graceful Shutdown] Received SIGINT signal");
     await gracefulShutdown.shutdown({ timeout: 60000, drainTimeout: 30000 });
     process.exit(0);
   });
@@ -228,14 +246,16 @@ export async function setupGracefulShutdownHandlers(
 /**
  * Middleware to return 503 Service Unavailable during shutdown
  */
-export const createShutdownMiddleware = (gracefulShutdown: GracefulShutdown) => {
+export const createShutdownMiddleware = (
+  gracefulShutdown: GracefulShutdown,
+) => {
   return (_req: any, res: any, next: any) => {
     const status = gracefulShutdown.getStatus();
 
     if (status.isShuttingDown) {
       res.status(503).json({
-        error: 'Service Unavailable',
-        message: 'Server is shutting down',
+        error: "Service Unavailable",
+        message: "Server is shutting down",
         timestamp: new Date().toISOString(),
       });
       return;

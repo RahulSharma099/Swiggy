@@ -2,7 +2,7 @@
 
 **Status**: ✅ COMPLETE  
 **Duration**: ~3 hours  
-**Build Status**: ✅ All 4 packages compile successfully  
+**Build Status**: ✅ All 4 packages compile successfully
 
 ## Overview
 
@@ -37,6 +37,7 @@ The health check system provides Kubernetes-compatible endpoints for monitoring 
 **Purpose**: Kubernetes readiness probe to detect if service can handle requests
 
 **Checks**:
+
 - PostgreSQL database connectivity and latency
 - Redis cache connectivity and latency
 
@@ -69,6 +70,7 @@ The health check system provides Kubernetes-compatible endpoints for monitoring 
 **Purpose**: Comprehensive system health assessment for debugging and dashboards
 
 **Checks**:
+
 1. **Database**
    - Connection pool status
    - Query latency (warns if > 100ms)
@@ -144,19 +146,22 @@ When SIGTERM or SIGINT signal is received:
 #### 2.2 Integration Points
 
 **GracefulShutdown Manager** (`observability/graceful-shutdown.ts`):
+
 - Tracks active HTTP connections
 - Tracks active in-flight requests
 - Manages shutdown handlers
 - Provides status endpoint
 
 **Middleware** (`createShutdownMiddleware`):
+
 - Returns 503 during shutdown phase
 - Enables smooth load balancer traffic drain
 
 **Signal Handlers** (in `server.ts`):
+
 ```typescript
-process.on('SIGTERM', () => gracefulShutdownHandler('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdownHandler('SIGINT'));
+process.on("SIGTERM", () => gracefulShutdownHandler("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdownHandler("SIGINT"));
 ```
 
 #### 2.3 Best Practices Implemented
@@ -165,7 +170,7 @@ process.on('SIGINT', () => gracefulShutdownHandler('SIGINT'));
 ✅ Client-aware closure (sends WebSocket close frame)  
 ✅ Resource cleanup (database, Redis connections)  
 ✅ Metrics flush (prepare for external service integration)  
-✅ Configurable timeouts (drain timeout, total timeout)  
+✅ Configurable timeouts (drain timeout, total timeout)
 
 ---
 
@@ -178,21 +183,25 @@ Comprehensive metrics collection with Prometheus-compatible export format.
 Singleton metrics registry with three data types:
 
 **Counters** (increment-only):
+
 - Events published: `events_published_total{type="issue.created"}`
 - HTTP requests: `http_requests_received_total{method="POST", path="/api/issues"}`
 - Errors: `event_handler_error_total{handler="ActivityLog", type="issue.created"}`
 
 **Gauges** (current value):
+
 - Active HTTP connections: `http_requests_active`
 - WebSocket connections: `websocket_connections_active`
 - Event handlers registered: `event_handlers_registered`
 
 **Histograms** (value distribution):
+
 - HTTP request duration: `http_request_duration_ms{method="GET", path="/api/issues", status="200"}`
 - Database query duration: `query_duration_ms`
 - Event handler duration: `event_handler_duration_ms`
 
 **Percentile Calculations**:
+
 - p50 (median)
 - p95 (95th percentile)
 - p99 (99th percentile)
@@ -313,17 +322,20 @@ Event-specific metrics for monitoring event-driven flows:
 Automatically tracks HTTP request metrics:
 
 **Tracks**:
+
 - Request duration (histogram): How long each request took
 - Request count (counter): Total requests by method/path/status
 - Error rate (counter): Requests with 4xx/5xx status
 - Active requests (gauge): How many requests are currently being processed
 
 **Path Normalization**:
+
 - `/api/issues/123` → `/api/issues/:id`
 - `/api/projects/abc-def-456` → `/api/projects/:id`
 - Prevents cardinality explosion in metrics storage
 
 **Labels**:
+
 - `method`: HTTP method (GET, POST, etc.)
 - `path`: Normalized path
 - `status`: HTTP status code
@@ -376,7 +388,12 @@ app.use("/metrics", createMetricsRoutes(deps.metricsCollector));
 // Graceful shutdown
 const gracefulShutdown = new GracefulShutdown({ error, info });
 gracefulShutdown.registerServer(server);
-await setupGracefulShutdownHandlers(gracefulShutdown, deps.prisma, deps.redis, deps.metricsCollector);
+await setupGracefulShutdownHandlers(
+  gracefulShutdown,
+  deps.prisma,
+  deps.redis,
+  deps.metricsCollector,
+);
 ```
 
 ---
@@ -386,7 +403,7 @@ await setupGracefulShutdownHandlers(gracefulShutdown, deps.prisma, deps.redis, d
 ### ✅ Implemented in Phase 2
 
 - [x] Liveness probe endpoint
-- [x] Readiness probe endpoint  
+- [x] Readiness probe endpoint
 - [x] Deep health check endpoint
 - [x] Graceful shutdown handler
 - [x] SIGTERM/SIGINT signal handling
@@ -511,6 +528,7 @@ kill -TERM <pid>
 ## Code Statistics
 
 **Phase 2 Implementation**:
+
 - 5 new files created: ~900 lines of code
 - 3 existing files modified: ~200 lines added
 - Health checks: ~250 LOC
@@ -520,7 +538,7 @@ kill -TERM <pid>
 
 **Build Status**: ✅ All 4 packages compile successfully  
 **Test Status**: ✅ Expected to pass all type checks  
-**Git Commits**: 2 commits (health checks + metrics)  
+**Git Commits**: 2 commits (health checks + metrics)
 
 ---
 
