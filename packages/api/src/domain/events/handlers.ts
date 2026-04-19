@@ -46,7 +46,7 @@ export async function createActivityLogHandler(auditService: AuditService) {
         action,
         event.actorId,
         event.payload,
-        `${event.type} event triggered`
+        `${event.type} event triggered`,
       );
     } catch (error) {
       console.error("Error writing activity log:", error);
@@ -179,7 +179,7 @@ export async function createSearchIndexHandler(
  * Separates notification logic from core domain operations
  */
 export async function createNotificationQueueHandler() {
-// notificationQueue: any // Would be queue service (Bull, RabbitMQ, etc)
+  // notificationQueue: any // Would be queue service (Bull, RabbitMQ, etc)
   return async (event: AllDomainEvents): Promise<void> => {
     try {
       // These events trigger notifications

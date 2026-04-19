@@ -52,7 +52,7 @@ export interface IssueCreatedEvent extends DomainEvent {
     title: string;
     description?: string;
     type: "EPIC" | "STORY" | "TASK" | "BUG" | "SUBTASK";
-    priority?: number | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+    priority?: number | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
     assigneeId?: string;
   };
 }

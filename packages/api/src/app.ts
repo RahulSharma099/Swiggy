@@ -29,7 +29,6 @@ import { createAuthMiddleware } from "./middleware/auth";
 import {
   createEventBus,
   createActivityLogHandler,
-
   createSearchIndexHandler,
   createNotificationQueueHandler,
   EventBus,
@@ -231,7 +230,10 @@ export const createApp = () => {
     );
 
     // Notification queue handler (TODO: integrate with email service)
-    eventBus.subscribe("issue.assigned", await createNotificationQueueHandler());
+    eventBus.subscribe(
+      "issue.assigned",
+      await createNotificationQueueHandler(),
+    );
     eventBus.subscribe("comment.added", await createNotificationQueueHandler());
     eventBus.subscribe("issue.created", await createNotificationQueueHandler());
   };

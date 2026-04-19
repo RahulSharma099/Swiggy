@@ -99,7 +99,9 @@ export class EventBus {
   /**
    * Get all registered handlers (for debugging/testing)
    */
-  getHandlers(eventType?: EventType | "*"): Map<EventType | "*", EventHandler[]> {
+  getHandlers(
+    eventType?: EventType | "*",
+  ): Map<EventType | "*", EventHandler[]> {
     if (eventType) {
       const result = new Map<EventType | "*", EventHandler[]>();
       const handlers = this.handlers.get(eventType);

@@ -8,7 +8,6 @@ import { createSearchHandlers } from "./handlers/search";
 import { createSearchAggregatorHandlers } from "./handlers/search-aggregator";
 import { createSearchAnalyticsHandlers } from "./handlers/search-analytics";
 
-
 /**
  * Workspace Routes with service integration and authorization
  */
