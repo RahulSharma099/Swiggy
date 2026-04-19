@@ -1,7 +1,7 @@
 /**
  * k6 Load Test - Spike Test
  *
- * Tests: Sudden spike of traffic (simulates traffic surge)
+ * Tests: Sudden spike of traffic with JWT authentication
  * Measures: How system handles sudden load increase
  *
  * Run with: k6 run load-tests/02-spike.js
@@ -10,6 +10,7 @@
 import http from "k6/http";
 import { check, group, sleep } from "k6";
 import { Rate, Trend } from "k6/metrics";
+import { getAuthHeaders } from "./auth-utils.js";
 
 const errorRate = new Rate("spike_errors");
 const requestDuration = new Trend("spike_request_duration");
@@ -42,10 +43,8 @@ export default function () {
   });
 
   group("API Operations", () => {
-    const headers = {
-      "Content-Type": "application/json",
-      "x-user-id": `user-${__VU}-${__ITER}`,
-    };
+    const userId = `spike-user-${__VU}-${__ITER}`;
+    const headers = getAuthHeaders(userId);
 
     // Simulate workspace list operation
     let res = http.get(`${BASE_URL}/api/workspaces`, { headers });

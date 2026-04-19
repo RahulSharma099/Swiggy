@@ -5,8 +5,8 @@
  * Supports URL-based versioning (/api/v1, /api/v2, etc.)
  */
 
-import { Request, Response, NextFunction } from 'express';
-import { Router } from 'express';
+import { Request, Response, NextFunction } from "express";
+import { Router } from "express";
 
 export interface VersionConfig {
   version: string;
@@ -69,7 +69,7 @@ export function createVersionMiddleware(
   options: {
     defaultToLatest?: boolean;
     requireExplicitVersion?: boolean;
-  } = {}
+  } = {},
 ) {
   const { defaultToLatest = true, requireExplicitVersion = false } = options;
 
@@ -79,8 +79,8 @@ export function createVersionMiddleware(
     if (!version) {
       if (requireExplicitVersion) {
         return res.status(400).json({
-          error: 'Version Required',
-          message: 'Please specify an API version (e.g., /api/v1/...)',
+          error: "Version Required",
+          message: "Please specify an API version (e.g., /api/v1/...)",
           availableVersions: registry.listVersions().map((v) => v.version),
         });
       }
@@ -99,7 +99,7 @@ export function createVersionMiddleware(
     const config = registry.get(version);
     if (!config) {
       return res.status(404).json({
-        error: 'Version Not Found',
+        error: "Version Not Found",
         message: `API version ${version} is not supported`,
         availableVersions: registry.listVersions().map((v) => v.version),
       });
@@ -110,26 +110,25 @@ export function createVersionMiddleware(
 
     // Add deprecation headers if applicable
     if (config.deprecated) {
-      res.setHeader('Deprecation', 'true');
-      
+      res.setHeader("Deprecation", "true");
+
       if (config.deprecationDate) {
-        res.setHeader(
-          'Deprecation-Date',
-          config.deprecationDate.toISOString()
-        );
+        res.setHeader("Deprecation-Date", config.deprecationDate.toISOString());
       }
 
       if (config.sunsetDate) {
-        res.setHeader('Sunset', config.sunsetDate.toUTCString());
+        res.setHeader("Sunset", config.sunsetDate.toUTCString());
       }
 
       const message = `API version ${version} is deprecated`;
-      const successor = config.successor ? ` and will be removed. Please migrate to ${config.successor}.` : '.';
-      res.setHeader('Warning', `299 - "${message}${successor}"`);
+      const successor = config.successor
+        ? ` and will be removed. Please migrate to ${config.successor}.`
+        : ".";
+      res.setHeader("Warning", `299 - "${message}${successor}"`);
     }
 
     // Add version header
-    res.setHeader('API-Version', version);
+    res.setHeader("API-Version", version);
 
     next();
   };
@@ -164,7 +163,7 @@ export class VersionedRouter {
   /**
    * Mount all version routers with Express
    */
-  mount(mainRouter: Router, basePath = '/api') {
+  mount(mainRouter: Router, basePath = "/api") {
     this.routers.forEach((router, version) => {
       mainRouter.use(`${basePath}/${version}`, router);
     });
@@ -173,7 +172,10 @@ export class VersionedRouter {
   /**
    * Add middleware to specific version
    */
-  useMiddleware(version: string, ...middlewares: Array<(req: any, res: any, next: any) => void>) {
+  useMiddleware(
+    version: string,
+    ...middlewares: Array<(req: any, res: any, next: any) => void>
+  ) {
     const router = this.getRouter(version);
     if (router) {
       router.use(...middlewares);
@@ -184,13 +186,9 @@ export class VersionedRouter {
 /**
  * Helper to respond with version info
  */
-export function sendVersionInfo(
-  res: Response,
-  data: any,
-  version?: string
-) {
+export function sendVersionInfo(res: Response, data: any, version?: string) {
   res.json({
-    version: version || res.getHeader('API-Version'),
+    version: version || res.getHeader("API-Version"),
     data,
     timestamp: new Date().toISOString(),
   });
@@ -199,11 +197,9 @@ export function sendVersionInfo(
 /**
  * Middleware to transform response based on version
  */
-export function createVersionTransformMiddleware(
-  transformers: {
-    [version: string]: (data: any) => any;
-  }
-) {
+export function createVersionTransformMiddleware(transformers: {
+  [version: string]: (data: any) => any;
+}) {
   return (req: VersionedRequest, res: Response, next: NextFunction) => {
     const originalJson = res.json.bind(res);
 
@@ -228,10 +224,10 @@ export function createVersionCompatibilityRouter(
   fromVersion: string,
   toVersion: string,
   routes: Array<{
-    method: 'get' | 'post' | 'put' | 'delete' | 'patch';
+    method: "get" | "post" | "put" | "delete" | "patch";
     path: string;
     handler?: (req: any, res: any, next: any) => void;
-  }>
+  }>,
 ): Router {
   const router = Router();
 
@@ -245,7 +241,7 @@ export function createVersionCompatibilityRouter(
 
       // Log the deprecated route usage
       console.warn(
-        `[Deprecation] ${method.toUpperCase()} ${fromVersion}${path} forwarded to ${toVersion}`
+        `[Deprecation] ${method.toUpperCase()} ${fromVersion}${path} forwarded to ${toVersion}`,
       );
 
       if (handler) {
@@ -265,16 +261,16 @@ export function createVersionCompatibilityRouter(
 export function setupVersionRegistry(): VersionRegistry {
   const registry = new VersionRegistry();
 
-  registry.register('v1', {
+  registry.register("v1", {
     deprecated: false,
   });
 
-  registry.register('v2', {
+  registry.register("v2", {
     deprecated: false,
-    successor: 'v3',
+    successor: "v3",
   });
 
-  registry.register('v3', {
+  registry.register("v3", {
     deprecated: false,
   });
 

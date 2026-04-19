@@ -5,6 +5,7 @@
 Phase 4 implements a production-ready security layer for the Jira-like project management platform. This includes JWT-based authentication, distributed rate limiting, and API versioning strategies.
 
 **Goals:**
+
 - ✅ Implement JWT-based stateless authentication
 - ✅ Add role-based access control (RBAC) framework
 - ✅ Implement distributed rate limiting
@@ -12,6 +13,7 @@ Phase 4 implements a production-ready security layer for the Jira-like project m
 - Enforce security best practices across all endpoints
 
 **Technology Stack:**
+
 - HMAC-SHA256 for token signing
 - Redis for distributed rate limiting
 - Token bucket algorithm for rate limiting
@@ -53,12 +55,12 @@ JWT_ALGORITHM=HS256
 Located in `packages/api/src/auth/jwt.ts`:
 
 ```typescript
-import { encodeJWT, decodeJWT, generateTokenPair } from './auth/jwt';
+import { encodeJWT, decodeJWT, generateTokenPair } from "./auth/jwt";
 
 // Generate token pair on login
 const { accessToken, refreshToken, expiresIn } = generateTokenPair(
   userId,
-  workspaceId
+  workspaceId,
 );
 
 // Returns:
@@ -82,23 +84,25 @@ const payload = decodeJWT(token);
 
 ### Key Functions
 
-| Function | Purpose | Returns |
-|----------|---------|---------|
+| Function                                  | Purpose                        | Returns                                    |
+| ----------------------------------------- | ------------------------------ | ------------------------------------------ |
 | `generateTokenPair(userId, workspaceId?)` | Create access + refresh tokens | `{ accessToken, refreshToken, expiresIn }` |
-| `encodeJWT(payload, type)` | Create JWT token | Signed token string |
-| `decodeJWT(token)` | Verify & extract payload | Payload object or null |
-| `extractToken(authHeader)` | Parse Bearer token | Token string or null |
-| `generateRefreshTokenId()` | Create rotation ID | UUID string |
+| `encodeJWT(payload, type)`                | Create JWT token               | Signed token string                        |
+| `decodeJWT(token)`                        | Verify & extract payload       | Payload object or null                     |
+| `extractToken(authHeader)`                | Parse Bearer token             | Token string or null                       |
+| `generateRefreshTokenId()`                | Create rotation ID             | UUID string                                |
 
 ### Token Types
 
 **Access Token (short-lived):**
+
 - Expires in 15 minutes (configurable)
 - Used for API requests
 - Included in `Authorization: Bearer <token>` header
 - Small footprint (stateless verification)
 
 **Refresh Token (long-lived):**
+
 - Expires in 7 days (configurable)
 - Used to obtain new access tokens
 - Should be stored securely on client (httpOnly cookie recommended)
@@ -107,6 +111,7 @@ const payload = decodeJWT(token);
 ### Token Rotation Pattern
 
 Current implementation (development):
+
 ```
 User logs in → Server generates token pair → Client stores both tokens
 Client makes requests with accessToken in Authorization header
@@ -114,6 +119,7 @@ AccessToken expires → Client uses refreshToken to get new accessToken
 ```
 
 Production enhancements needed:
+
 1. Store refresh token hashes in database
 2. Track refresh token version/ID for rotation
 3. Invalidate old tokens on logout
@@ -128,6 +134,7 @@ Production enhancements needed:
 **POST `/auth/login`**
 
 Request:
+
 ```json
 {
   "userId": "user123",
@@ -136,6 +143,7 @@ Request:
 ```
 
 Response (200):
+
 ```json
 {
   "success": true,
@@ -158,6 +166,7 @@ Response (200):
 **POST `/auth/refresh`**
 
 Request:
+
 ```json
 {
   "refreshToken": "eyJ..."
@@ -165,6 +174,7 @@ Request:
 ```
 
 Response (200):
+
 ```json
 {
   "success": true,
@@ -176,6 +186,7 @@ Response (200):
 ```
 
 Error (401):
+
 ```json
 {
   "error": "Invalid refresh token",
@@ -190,6 +201,7 @@ Error (401):
 Requires: `Authorization: Bearer <accessToken>`
 
 Response (200):
+
 ```json
 {
   "success": true,
@@ -206,6 +218,7 @@ Response (200):
 Requires: `Authorization: Bearer <accessToken>`
 
 Response (200):
+
 ```json
 {
   "success": true,
@@ -225,36 +238,46 @@ Response (200):
 Located in `packages/api/src/auth/auth-middleware.ts`:
 
 ```typescript
-import { createJWTMiddleware, requireRole, requireWorkspaceAccess } from './auth/auth-middleware';
+import {
+  createJWTMiddleware,
+  requireRole,
+  requireWorkspaceAccess,
+} from "./auth/auth-middleware";
 
 // Required JWT (401 if missing/invalid)
-app.get('/issues', createJWTMiddleware(), (req, res) => {
-  console.log(req.user);  // { userId, workspaceId, iat, exp }
+app.get("/issues", createJWTMiddleware(), (req, res) => {
+  console.log(req.user); // { userId, workspaceId, iat, exp }
 });
 
 // Role-based access (requires roles in payload)
-app.post('/admin', createJWTMiddleware(), requireRole(['admin']), (req, res) => {
-  // Only users with admin role
-});
+app.post(
+  "/admin",
+  createJWTMiddleware(),
+  requireRole(["admin"]),
+  (req, res) => {
+    // Only users with admin role
+  },
+);
 
 // Workspace-scoped access
-app.get('/workspace/:id/issues', 
-  createJWTMiddleware(), 
-  requireWorkspaceAccess(), 
+app.get(
+  "/workspace/:id/issues",
+  createJWTMiddleware(),
+  requireWorkspaceAccess(),
   (req, res) => {
     // Only access own workspace
-  }
+  },
 );
 ```
 
 ### Middleware Types
 
-| Middleware | Purpose | Behavior |
-|-----------|---------|----------|
-| `createJWTMiddleware()` | Require valid JWT | Returns 401 if missing/invalid |
-| `createOptionalJWTMiddleware()` | Optional JWT | Extracts user if valid, continues if missing |
-| `requireRole(roles)` | Role-based access | Returns 403 if user lacks role |
-| `requireWorkspaceAccess()` | Workspace isolation | Returns 403 if accessing other workspace |
+| Middleware                      | Purpose             | Behavior                                     |
+| ------------------------------- | ------------------- | -------------------------------------------- |
+| `createJWTMiddleware()`         | Require valid JWT   | Returns 401 if missing/invalid               |
+| `createOptionalJWTMiddleware()` | Optional JWT        | Extracts user if valid, continues if missing |
+| `requireRole(roles)`            | Role-based access   | Returns 403 if user lacks role               |
+| `requireWorkspaceAccess()`      | Workspace isolation | Returns 403 if accessing other workspace     |
 
 ---
 
@@ -263,6 +286,7 @@ app.get('/workspace/:id/issues',
 ### Overview
 
 Prevents abuse and ensures fair resource distribution. Supports:
+
 - Per-user rate limits (authenticated users)
 - Per-IP rate limits (anonymous users)
 - Per-endpoint rate limits (different for auth vs. read vs. write)
@@ -273,6 +297,7 @@ Prevents abuse and ensures fair resource distribution. Supports:
 Tokens are refilled at a constant rate. Each request consumes 1 token.
 
 **Example:**
+
 ```
 Max Tokens: 60 (capacity)
 Refill Rate: 1 token/second
@@ -299,24 +324,30 @@ const RATE_LIMIT_PRESETS = {
 ### Implementation
 
 ```typescript
-import { 
+import {
   createPerUserRateLimitMiddleware,
   createPerIPRateLimitMiddleware,
-  RATE_LIMIT_PRESETS 
-} from './middleware/rate-limiting';
+  RATE_LIMIT_PRESETS,
+} from "./middleware/rate-limiting";
 
 // Per-user rate limiting (60 req/min)
-app.use('/api/issues', createPerUserRateLimitMiddleware(redis, RATE_LIMIT_PRESETS.standard));
+app.use(
+  "/api/issues",
+  createPerUserRateLimitMiddleware(redis, RATE_LIMIT_PRESETS.standard),
+);
 
 // Per-IP rate limiting (10 req/min)
-app.use('/auth/login', createPerIPRateLimitMiddleware(redis, RATE_LIMIT_PRESETS.strict));
+app.use(
+  "/auth/login",
+  createPerIPRateLimitMiddleware(redis, RATE_LIMIT_PRESETS.strict),
+);
 
 // Or create custom
 const limiter = new TokenBucketLimiter(redis, {
   maxTokens: 100,
   refillRate: 100,
   refillInterval: 60000,
-  windowMs: 60000
+  windowMs: 60000,
 });
 app.use(createRateLimitMiddleware(redis, limiter));
 ```
@@ -344,16 +375,16 @@ Retry-After: 30                 # Seconds to wait if limited (429 only)
 
 ### Recommended Limits by Endpoint
 
-| Endpoint | Type | Limit | Reasoning |
-|----------|------|-------|-----------|
-| `/auth/login` | Per-IP | 5/min | Prevent brute force |
-| `/auth/refresh` | Per-User | 10/min | Reasonable session management |
-| `/issues` (GET) | Per-User | 300/min | Read operations |
-| `/issues` (POST) | Per-User | 60/min | Write operations |
-| `/comments` | Per-User | 120/min | Moderate write |
-| `/search` | Per-User | 30/min | Heavy computation |
-| `/admin/*` | Per-User | 10/min | Administrative actions |
-| `/health` | Global | 1000/min | Monitoring/health checks |
+| Endpoint         | Type     | Limit    | Reasoning                     |
+| ---------------- | -------- | -------- | ----------------------------- |
+| `/auth/login`    | Per-IP   | 5/min    | Prevent brute force           |
+| `/auth/refresh`  | Per-User | 10/min   | Reasonable session management |
+| `/issues` (GET)  | Per-User | 300/min  | Read operations               |
+| `/issues` (POST) | Per-User | 60/min   | Write operations              |
+| `/comments`      | Per-User | 120/min  | Moderate write                |
+| `/search`        | Per-User | 30/min   | Heavy computation             |
+| `/admin/*`       | Per-User | 10/min   | Administrative actions        |
+| `/health`        | Global   | 1000/min | Monitoring/health checks      |
 
 ### Custom Rate Limit Logic
 
@@ -364,7 +395,7 @@ const authLimit = new TokenBucketLimiter(redis, RATE_LIMIT_PRESETS.strict);
 const readLimit = new TokenBucketLimiter(redis, RATE_LIMIT_PRESETS.relaxed);
 const writeLimit = new TokenBucketLimiter(redis, RATE_LIMIT_PRESETS.standard);
 
-app.post('/auth/login', 
+app.post('/auth/login',
   createRateLimitMiddleware(redis, authLimit),
   (req, res) => { ... }
 );
@@ -393,6 +424,7 @@ docker-compose up redis
 ```
 
 Environment variables:
+
 ```bash
 REDIS_HOST=localhost          # Redis host
 REDIS_PORT=6379              # Redis port
@@ -406,6 +438,7 @@ REDIS_PASSWORD=              # Password (if required)
 ### Overview
 
 Enables backward compatibility and smooth API evolution:
+
 - Support multiple API versions simultaneously
 - Deprecate old versions with notice periods
 - Guide clients to newer versions
@@ -425,56 +458,60 @@ Enables backward compatibility and smooth API evolution:
 Track versions and deprecation:
 
 ```typescript
-import { VersionRegistry } from './middleware/api-versioning';
+import { VersionRegistry } from "./middleware/api-versioning";
 
 const registry = new VersionRegistry();
 
-registry.register('v1', { deprecated: true, sunsetDate: new Date('2025-01-01') });
-registry.register('v2', { deprecated: false });
-registry.register('v3', { deprecated: false }); // Latest
+registry.register("v1", {
+  deprecated: true,
+  sunsetDate: new Date("2025-01-01"),
+});
+registry.register("v2", { deprecated: false });
+registry.register("v3", { deprecated: false }); // Latest
 ```
 
 ### Implementation
 
 ```typescript
-import { createVersionMiddleware, VersionedRouter } from './middleware/api-versioning';
+import {
+  createVersionMiddleware,
+  VersionedRouter,
+} from "./middleware/api-versioning";
 
 // Enable version detection on all API routes
-app.use('/api', createVersionMiddleware(versionRegistry));
+app.use("/api", createVersionMiddleware(versionRegistry));
 
 // Create version-specific routers
 const versioned = new VersionedRouter(versionRegistry);
 
-const v1 = versioned.createRouter('v1');
-const v2 = versioned.createRouter('v2');
+const v1 = versioned.createRouter("v1");
+const v2 = versioned.createRouter("v2");
 
 // Version 1: Simple response
-v1.get('/issues', (req, res) => {
+v1.get("/issues", (req, res) => {
   res.json({
-    issues: [
-      { id: '1', title: 'Issue 1' }
-    ]
+    issues: [{ id: "1", title: "Issue 1" }],
   });
 });
 
 // Version 2: Enhanced response
-v2.get('/issues', (req, res) => {
+v2.get("/issues", (req, res) => {
   res.json({
     data: {
       issues: [
-        { 
-          id: '1', 
-          title: 'Issue 1',
-          labels: ['bug'],
-          assignee: { id: 'user1', name: 'John' }
-        }
-      ]
+        {
+          id: "1",
+          title: "Issue 1",
+          labels: ["bug"],
+          assignee: { id: "user1", name: "John" },
+        },
+      ],
     },
-    meta: { total: 1, page: 1 }
+    meta: { total: 1, page: 1 },
   });
 });
 
-versioned.mount(app, '/api');
+versioned.mount(app, "/api");
 ```
 
 ### Deprecation Headers
@@ -490,6 +527,7 @@ API-Version: v1
 ```
 
 Clients should:
+
 1. Log deprecation warnings
 2. Plan migration to new version before sunset date
 3. Request new version in code
@@ -501,7 +539,9 @@ All versioned responses include version information:
 ```json
 {
   "version": "v2",
-  "data": { /* endpoint data */ },
+  "data": {
+    /* endpoint data */
+  },
   "timestamp": "2024-12-04T10:30:00Z"
 }
 ```
@@ -532,20 +572,24 @@ When introducing breaking changes:
 4. Provide migration guide
 
 Example:
+
 ```typescript
 // v2: Breaking change - response format
-registry.register('v1', { deprecated: true, sunsetDate: new Date('2025-06-01') });
-registry.register('v2', { deprecated: false });
+registry.register("v1", {
+  deprecated: true,
+  sunsetDate: new Date("2025-06-01"),
+});
+registry.register("v2", { deprecated: false });
 
 // Migration guide endpoint
-app.get('/api/migration-guide', (req, res) => {
+app.get("/api/migration-guide", (req, res) => {
   res.json({
-    message: 'API v1 is deprecated. Migrate to v2.',
+    message: "API v1 is deprecated. Migrate to v2.",
     breaking_changes: [
-      { field: 'issues[].assignee', v1: 'string', v2: 'object' },
-      { route: '/issues/search', note: 'moved to /issues?search=...' }
+      { field: "issues[].assignee", v1: "string", v2: "object" },
+      { route: "/issues/search", note: "moved to /issues?search=..." },
     ],
-    guide_url: 'https://docs.example.com/migration-v1-to-v2'
+    guide_url: "https://docs.example.com/migration-v1-to-v2",
   });
 });
 ```
@@ -568,8 +612,8 @@ app.get('/api/migration-guide', (req, res) => {
 
 ```typescript
 app.use((req, res, next) => {
-  if (process.env.NODE_ENV === 'production' && req.protocol !== 'https') {
-    return res.status(403).json({ error: 'HTTPS required' });
+  if (process.env.NODE_ENV === "production" && req.protocol !== "https") {
+    return res.status(403).json({ error: "HTTPS required" });
   }
   next();
 });
@@ -578,45 +622,53 @@ app.use((req, res, next) => {
 #### Security Headers
 
 ```typescript
-import helmet from 'helmet';
+import helmet from "helmet";
 
 app.use(helmet());
-app.use(helmet.contentSecurityPolicy({
-  directives: {
-    defaultSrc: ["'self'"],
-    scriptSrc: ["'self'"],
-  }
-}));
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+    },
+  }),
+);
 ```
 
 #### Input Validation
 
 ```typescript
-import { body, validationResult } from 'express-validator';
+import { body, validationResult } from "express-validator";
 
-app.post('/auth/login', [
-  body('userId').isString().trim().notEmpty(),
-  body('workspaceId').optional().isString().trim(),
-],(req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-  next();
-});
+app.post(
+  "/auth/login",
+  [
+    body("userId").isString().trim().notEmpty(),
+    body("workspaceId").optional().isString().trim(),
+  ],
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  },
+);
 ```
 
 #### CORS Configuration
 
 ```typescript
-import cors from 'cors';
+import cors from "cors";
 
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || 'http://localhost:3000',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  maxAge: 3600
-}));
+app.use(
+  cors({
+    origin: process.env.ALLOWED_ORIGINS?.split(",") || "http://localhost:3000",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    maxAge: 3600,
+  }),
+);
 ```
 
 ---
@@ -626,8 +678,12 @@ app.use(cors({
 ### Step 1: Setup Rate Limiting
 
 ```typescript
-import { createClient } from 'redis';
-import { createRateLimitMiddleware, TokenBucketLimiter, RATE_LIMIT_PRESETS } from './middleware/rate-limiting';
+import { createClient } from "redis";
+import {
+  createRateLimitMiddleware,
+  TokenBucketLimiter,
+  RATE_LIMIT_PRESETS,
+} from "./middleware/rate-limiting";
 
 const redis = await createClient().connect();
 
@@ -639,31 +695,34 @@ app.use(createRateLimitMiddleware(redis, globalLimiter));
 ### Step 2: Setup Auth Routes
 
 ```typescript
-import { authRouter } from './auth/auth-routes';
+import { authRouter } from "./auth/auth-routes";
 
-app.use('/api/auth', authRouter);
+app.use("/api/auth", authRouter);
 ```
 
 ### Step 3: Setup Versioning
 
 ```typescript
-import { VersionRegistry, createVersionMiddleware } from './middleware/api-versioning';
+import {
+  VersionRegistry,
+  createVersionMiddleware,
+} from "./middleware/api-versioning";
 
 const versionRegistry = new VersionRegistry();
-versionRegistry.register('v1', { deprecated: false });
-versionRegistry.register('v2', { deprecated: false });
+versionRegistry.register("v1", { deprecated: false });
+versionRegistry.register("v2", { deprecated: false });
 
-app.use('/api', createVersionMiddleware(versionRegistry));
+app.use("/api", createVersionMiddleware(versionRegistry));
 ```
 
 ### Step 4: Apply to Protected Routes
 
 ```typescript
-import { createJWTMiddleware } from './auth/auth-middleware';
+import { createJWTMiddleware } from "./auth/auth-middleware";
 
 const jwtMiddleware = createJWTMiddleware();
 
-app.get('/api/v1/issues', jwtMiddleware, (req, res) => {
+app.get("/api/v1/issues", jwtMiddleware, (req, res) => {
   // Protected endpoint
   console.log(req.user);
   res.json({ issues: [] });
@@ -765,16 +824,16 @@ Versioning Metrics:
 Already included from Phase 2:
 
 ```typescript
-import { metrics } from './observability/metrics';
+import { metrics } from "./observability/metrics";
 
 // Track JWT validations
-metrics.incr('jwt.validations.total', { status: 'success|invalid|expired' });
+metrics.incr("jwt.validations.total", { status: "success|invalid|expired" });
 
 // Track rate limits
-metrics.incr('rate_limit.hits', { endpoint: req.path });
+metrics.incr("rate_limit.hits", { endpoint: req.path });
 
 // Track versions
-metrics.incr('api.requests.total', { version: req.apiVersion });
+metrics.incr("api.requests.total", { version: req.apiVersion });
 ```
 
 ---
@@ -786,6 +845,7 @@ metrics.incr('api.requests.total', { version: req.apiVersion });
 **Cause:** Token signature verification failed or token expired.
 
 **Solution:**
+
 1. Check `JWT_SECRET` hasn't changed
 2. Verify token isn't expired (check `exp` claim)
 3. Ensure token format is `Authorization: Bearer <token>`
@@ -797,6 +857,7 @@ metrics.incr('api.requests.total', { version: req.apiVersion });
 **Cause:** Rate limit exceeded for identifier.
 
 **Solution:**
+
 1. Check `X-RateLimit-Remaining` header
 2. Wait for `Retry-After` seconds
 3. Consider adjusting limits for your use case
@@ -809,6 +870,7 @@ metrics.incr('api.requests.total', { version: req.apiVersion });
 **Cause:** Redis unavailable or misconfigured.
 
 **Solution:**
+
 1. Verify Redis is running: `redis-cli ping`
 2. Check `REDIS_HOST` and `REDIS_PORT`
 3. Verify network connectivity
@@ -821,6 +883,7 @@ metrics.incr('api.requests.total', { version: req.apiVersion });
 **Cause:** Requesting unsupported API version.
 
 **Solution:**
+
 1. Check available versions: `GET /api/versions`
 2. Update client to use supported version
 3. Check deprecation notice if version recently removed
@@ -880,4 +943,3 @@ Phase 4 provides foundation for:
 **Last Updated:** 2024-12-04
 
 **Completed By:** GitHub Copilot
-

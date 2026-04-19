@@ -1,34 +1,38 @@
 /**
  * k6 Load Test - Baseline Performance
  *
- * Tests: Constant RPS load on the API
+ * Tests: Constant RPS load on the API with JWT authentication
  * Measures: Response time, error rate, throughput
+ * Authentication: JWT tokens from Phase 4 security layer
  *
- * Run with: k6 run --vus 10 --duration 30s load-tests/01-baseline.js
+ * Run with: k6 run --vus 10 --duration 60s load-tests/01-baseline.js
  */
 
 import http from "k6/http";
 import { check, group, sleep } from "k6";
-import { Counter, Histogram, Rate, Trend } from "k6/metrics";
+import { Counter, Rate, Trend } from "k6/metrics";
+import { getAuthHeaders } from "./auth-utils.js";
 
 // Custom metrics
 const errorRate = new Rate("errors");
 const requestDuration = new Trend("request_duration");
 const requestCounter = new Counter("requests");
 const healthCheckRate = new Rate("health_checks");
+const authFailures = new Counter("auth_failures");
 
 export const options = {
   stages: [
     { duration: "10s", target: 5 }, // Ramp-up to 5 VUs
     { duration: "20s", target: 10 }, // Ramp-up to 10 VUs
-    { duration: "30s", target: 10 }, // Stay at 10 VUs for 30s
+    { duration: "40s", target: 10 }, // Sustain at 10 VUs for 40s
     { duration: "10s", target: 5 }, // Ramp-down to 5 VUs
-    { duration: "10s", target: 0 }, // Ramp-down to 0 VUs
+    { duration: "10s", target: 0 }, // Cool down
   ],
   thresholds: {
     http_req_duration: ["p(95)<500", "p(99)<1000"], // 95% response < 500ms, 99% < 1000ms
     errors: ["rate<0.1"], // Error rate < 10%
     http_req_failed: ["rate<0.1"], // Failed requests < 10%
+    auth_failures: ["rate<0.05"], // Auth failures < 5%
   },
 };
 
@@ -104,10 +108,8 @@ export default function () {
   });
 
   group("API Endpoints (Workspace)", () => {
-    const headers = {
-      "Content-Type": "application/json",
-      "x-user-id": `user-${__VU}`,
-    };
+    const userId = `user-${__VU}`;
+    const headers = getAuthHeaders(userId);
 
     // Get workspaces
     let res = http.get(`${BASE_URL}/api/workspaces`, { headers });
@@ -118,6 +120,10 @@ export default function () {
 
     if (res.status !== 200) {
       errorRate.add(1);
+      // Track as auth failure if 401/403, otherwise as regular error
+      if (res.status === 401 || res.status === 403) {
+        authFailures.add(1);
+      }
     }
 
     requestDuration.add(res.timings.duration);

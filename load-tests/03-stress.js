@@ -1,7 +1,7 @@
 /**
  * k6 Load Test - Stress Test
  *
- * Tests: Gradually increase load until system breaks
+ * Tests: Gradually increase load with JWT auth until system breaks
  * Measures: System breaking point and error threshold
  *
  * Run with: k6 run load-tests/03-stress.js
@@ -10,6 +10,7 @@
 import http from "k6/http";
 import { check, group, sleep } from "k6";
 import { Rate, Trend, Counter } from "k6/metrics";
+import { getAuthHeaders } from "./auth-utils.js";
 
 const errorRate = new Rate("stress_errors");
 const requestDuration = new Trend("stress_request_duration");
@@ -40,10 +41,8 @@ const BASE_URL = "http://localhost:3000";
 
 export default function () {
   group("Critical Endpoints Under Stress", () => {
-    const headers = {
-      "Content-Type": "application/json",
-      "x-user-id": `user-${__VU}`,
-    };
+    const userId = `stress-user-${__VU}`;
+    const headers = getAuthHeaders(userId);
 
     // Health check
     let res = http.get(`${BASE_URL}/health/ready`);
@@ -59,7 +58,7 @@ export default function () {
 
     sleep(0.1);
 
-    // API endpoint
+    // API endpoint with JWT
     res = http.get(`${BASE_URL}/api/workspaces`, { headers });
     check(res, {
       "api status 200": (r) => r.status === 200,

@@ -94,6 +94,8 @@ main() {
         "load-tests/03-stress.js|Stress Test|50s"
         "load-tests/04-soak.js|Soak Test|5m"
         "load-tests/05-api-crud.js|CRUD Operations|1m"
+        "load-tests/06-auth.js|Authentication & Tokens|2m"
+        "load-tests/07-rate-limiting.js|Rate Limiting Verification|50s"
     )
     
     local passed=0
@@ -138,13 +140,15 @@ if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
 Load Testing Script
 
 Usage:
-  $0              - Run all load tests
-  $0 --baseline   - Run only baseline test
-  $0 --spike      - Run only spike test
-  $0 --stress     - Run only stress test
-  $0 --soak       - Run only soak test
-  $0 --crud       - Run only CRUD operations test
-  $0 --help       - Show this help message
+  $0               - Run all load tests
+  $0 --baseline    - Run only baseline test
+  $0 --spike       - Run only spike test
+  $0 --stress      - Run only stress test
+  $0 --soak        - Run only soak test
+  $0 --crud        - Run only CRUD operations test
+  $0 --auth        - Run only authentication test
+  $0 --ratelimit   - Run only rate limiting test
+  $0 --help        - Show this help message
 
 Examples:
   # Run all tests
@@ -153,8 +157,11 @@ Examples:
   # Run baseline test with custom VUs
   k6 run --vus 20 load-tests/01-baseline.js
 
-  # Run spike test with custom duration
-  k6 run --duration 2m load-tests/02-spike.js
+  # Run authentication test
+  $0 --auth
+
+  # Run rate limiting test
+  $0 --ratelimit
 EOF
     exit 0
 fi
@@ -175,6 +182,12 @@ case "$1" in
         ;;
     --crud)
         run_test "load-tests/05-api-crud.js" "CRUD Operations" "1m"
+        ;;
+    --auth)
+        run_test "load-tests/06-auth.js" "Authentication & Tokens" "2m"
+        ;;
+    --ratelimit)
+        run_test "load-tests/07-rate-limiting.js" "Rate Limiting Verification" "50s"
         ;;
     *)
         main

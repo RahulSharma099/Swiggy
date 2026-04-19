@@ -5,9 +5,13 @@
  * Supports multiple limiting strategies: per-user, per-IP, per-endpoint
  */
 
-import { Request, Response, NextFunction } from 'express';
-import { RedisClientType } from 'redis';
-import { TokenBucketLimiter, RateLimitConfig, RATE_LIMIT_PRESETS } from './token-bucket';
+import { Request, Response, NextFunction } from "express";
+import { RedisClientType } from "redis";
+import {
+  TokenBucketLimiter,
+  RateLimitConfig,
+  RATE_LIMIT_PRESETS,
+} from "./token-bucket";
 
 export interface RateLimiterOptions {
   keyGenerator?: (req: Request) => string;
@@ -22,7 +26,7 @@ export interface RateLimiterOptions {
 export function createRateLimitMiddleware(
   _redis: RedisClientType,
   limiter: TokenBucketLimiter,
-  options: RateLimiterOptions = {}
+  options: RateLimiterOptions = {},
 ) {
   const {
     keyGenerator = defaultKeyGenerator,
@@ -43,23 +47,29 @@ export function createRateLimitMiddleware(
 
       // Attach rate limit info to request
       (req as any).rateLimit = {
-        limit: limiter['config'].maxTokens,
+        limit: limiter["config"].maxTokens,
         current: 0,
-        remaining: status?.remaining ?? limiter['config'].maxTokens,
+        remaining: status?.remaining ?? limiter["config"].maxTokens,
       };
 
       // Add rate limit headers to response
-      res.setHeader('X-RateLimit-Limit', limiter['config'].maxTokens.toString());
       res.setHeader(
-        'X-RateLimit-Remaining',
-        ((status?.remaining ?? 0) <= 0 ? 0 : (status?.remaining ?? 1) - 1).toString()
+        "X-RateLimit-Limit",
+        limiter["config"].maxTokens.toString(),
+      );
+      res.setHeader(
+        "X-RateLimit-Remaining",
+        ((status?.remaining ?? 0) <= 0
+          ? 0
+          : (status?.remaining ?? 1) - 1
+        ).toString(),
       );
 
       if (status) {
         // Rate limit exceeded
-        res.setHeader('X-RateLimit-Reset', (status.reset / 1000).toString());
+        res.setHeader("X-RateLimit-Reset", (status.reset / 1000).toString());
         if (status.retryAfter) {
-          res.setHeader('Retry-After', status.retryAfter.toString());
+          res.setHeader("Retry-After", status.retryAfter.toString());
         }
 
         if (onLimitExceeded) {
@@ -70,10 +80,13 @@ export function createRateLimitMiddleware(
       }
 
       // Within limits
-      res.setHeader('X-RateLimit-Reset', ((Date.now() + limiter['config'].windowMs) / 1000).toString());
+      res.setHeader(
+        "X-RateLimit-Reset",
+        ((Date.now() + limiter["config"].windowMs) / 1000).toString(),
+      );
       next();
     } catch (error) {
-      console.error('Rate limiting middleware error:', error);
+      console.error("Rate limiting middleware error:", error);
       // Fail open on error
       next();
     }
@@ -90,9 +103,9 @@ export function defaultKeyGenerator(req: Request): string {
   }
 
   const ip =
-    (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0] ||
     req.socket.remoteAddress ||
-    'unknown';
+    "unknown";
 
   return `ip:${ip}`;
 }
@@ -100,11 +113,15 @@ export function defaultKeyGenerator(req: Request): string {
 /**
  * Default handler: return 429 Too Many Requests
  */
-export function defaultHandler(_req: Request, res: Response, _next: NextFunction) {
+export function defaultHandler(
+  _req: Request,
+  res: Response,
+  _next: NextFunction,
+) {
   res.status(429).json({
-    error: 'Too Many Requests',
-    message: 'Rate limit exceeded. Please try again later.',
-    retryAfter: res.getHeader('Retry-After'),
+    error: "Too Many Requests",
+    message: "Rate limit exceeded. Please try again later.",
+    retryAfter: res.getHeader("Retry-After"),
   });
 }
 
@@ -114,15 +131,15 @@ export function defaultHandler(_req: Request, res: Response, _next: NextFunction
 export function createPerUserRateLimitMiddleware(
   redis: RedisClientType,
   config: RateLimitConfig = RATE_LIMIT_PRESETS.standard,
-  _options: RateLimiterOptions = {}
+  _options: RateLimiterOptions = {},
 ) {
-  const limiter = new TokenBucketLimiter(redis, config, 'rate-limit:user');
+  const limiter = new TokenBucketLimiter(redis, config, "rate-limit:user");
 
   return createRateLimitMiddleware(redis, limiter, {
     keyGenerator: (req) => {
       const user = (req as any).user;
       if (!user?.userId) {
-        throw new Error('Per-user rate limit requires authenticated user');
+        throw new Error("Per-user rate limit requires authenticated user");
       }
       return `${user.userId}`;
     },
@@ -135,16 +152,16 @@ export function createPerUserRateLimitMiddleware(
 export function createPerIPRateLimitMiddleware(
   redis: RedisClientType,
   config: RateLimitConfig = RATE_LIMIT_PRESETS.standard,
-  options: RateLimiterOptions = {}
+  options: RateLimiterOptions = {},
 ) {
-  const limiter = new TokenBucketLimiter(redis, config, 'rate-limit:ip');
+  const limiter = new TokenBucketLimiter(redis, config, "rate-limit:ip");
 
   return createRateLimitMiddleware(redis, limiter, {
     keyGenerator: (req) => {
       const ip =
-        (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
+        (req.headers["x-forwarded-for"] as string)?.split(",")[0] ||
         req.socket.remoteAddress ||
-        'unknown';
+        "unknown";
       return ip;
     },
     ...options,
@@ -158,10 +175,18 @@ export function createCombinedRateLimitMiddleware(
   redis: RedisClientType,
   userConfig: RateLimitConfig = RATE_LIMIT_PRESETS.standard,
   globalConfig: RateLimitConfig = RATE_LIMIT_PRESETS.relaxed,
-  _options: RateLimiterOptions = {}
+  _options: RateLimiterOptions = {},
 ) {
-  const userLimiter = new TokenBucketLimiter(redis, userConfig, 'rate-limit:user');
-  const globalLimiter = new TokenBucketLimiter(redis, globalConfig, 'rate-limit:global');
+  const userLimiter = new TokenBucketLimiter(
+    redis,
+    userConfig,
+    "rate-limit:user",
+  );
+  const globalLimiter = new TokenBucketLimiter(
+    redis,
+    globalConfig,
+    "rate-limit:global",
+  );
 
   return async (req: Request, res: Response, next: NextFunction) => {
     const user = (req as any).user;
@@ -171,46 +196,58 @@ export function createCombinedRateLimitMiddleware(
       if (user?.userId) {
         const userStatus = await userLimiter.checkLimit(user.userId);
         if (userStatus) {
-          res.setHeader('X-RateLimit-Limit', userConfig.maxTokens.toString());
-          res.setHeader('X-RateLimit-Remaining', Math.max(0, userStatus.remaining).toString());
-          res.setHeader('X-RateLimit-Reset', (userStatus.reset / 1000).toString());
-          res.setHeader('Retry-After', userStatus.retryAfter?.toString() || '');
+          res.setHeader("X-RateLimit-Limit", userConfig.maxTokens.toString());
+          res.setHeader(
+            "X-RateLimit-Remaining",
+            Math.max(0, userStatus.remaining).toString(),
+          );
+          res.setHeader(
+            "X-RateLimit-Reset",
+            (userStatus.reset / 1000).toString(),
+          );
+          res.setHeader("Retry-After", userStatus.retryAfter?.toString() || "");
           return res.status(429).json({
-            error: 'Too Many Requests',
-            message: 'Rate limit exceeded. Please try again later.',
+            error: "Too Many Requests",
+            message: "Rate limit exceeded. Please try again later.",
           });
         }
       }
 
       // Always check global limit
       const ip =
-        (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
+        (req.headers["x-forwarded-for"] as string)?.split(",")[0] ||
         req.socket.remoteAddress ||
-        'unknown';
-      const globalStatus = await globalLimiter.checkLimit('global');
+        "unknown";
+      const globalStatus = await globalLimiter.checkLimit("global");
       if (globalStatus) {
-        res.setHeader('X-RateLimit-Limit', globalConfig.maxTokens.toString());
-        res.setHeader('X-RateLimit-Remaining', Math.max(0, globalStatus.remaining).toString());
-        res.setHeader('X-RateLimit-Reset', (globalStatus.reset / 1000).toString());
-        res.setHeader('Retry-After', globalStatus.retryAfter?.toString() || '');
+        res.setHeader("X-RateLimit-Limit", globalConfig.maxTokens.toString());
+        res.setHeader(
+          "X-RateLimit-Remaining",
+          Math.max(0, globalStatus.remaining).toString(),
+        );
+        res.setHeader(
+          "X-RateLimit-Reset",
+          (globalStatus.reset / 1000).toString(),
+        );
+        res.setHeader("Retry-After", globalStatus.retryAfter?.toString() || "");
         return res.status(429).json({
-          error: 'Service Overloaded',
-          message: 'Server is at capacity. Please try again later.',
+          error: "Service Overloaded",
+          message: "Server is at capacity. Please try again later.",
         });
       }
 
       // Within all limits
-      res.setHeader('X-RateLimit-Limit', userConfig.maxTokens.toString());
+      res.setHeader("X-RateLimit-Limit", userConfig.maxTokens.toString());
       res.setHeader(
-        'X-RateLimit-Remaining',
+        "X-RateLimit-Remaining",
         Math.min(
           (await userLimiter.getStatus(user?.userId || ip)).remaining,
-          (await globalLimiter.getStatus('global')).remaining
-        ).toString()
+          (await globalLimiter.getStatus("global")).remaining,
+        ).toString(),
       );
       return next();
     } catch (error) {
-      console.error('Combined rate limiting error:', error);
+      console.error("Combined rate limiting error:", error);
       return next();
     }
   };
@@ -226,7 +263,7 @@ export function createEndpointRateLimitMiddleware(
     read?: RateLimitConfig;
     write?: RateLimitConfig;
     delete?: RateLimitConfig;
-  } = {}
+  } = {},
 ) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const config =
@@ -236,26 +273,33 @@ export function createEndpointRateLimitMiddleware(
     const limiter = new TokenBucketLimiter(
       redis,
       config,
-      `rate-limit:${req.method}:${req.path}`
+      `rate-limit:${req.method}:${req.path}`,
     );
 
     const identifier = defaultKeyGenerator(req);
     const status = await limiter.checkLimit(identifier);
 
     // Add rate limit headers
-    res.setHeader('X-RateLimit-Limit', config.maxTokens.toString());
-    res.setHeader('X-RateLimit-Remaining', (status?.remaining ?? config.maxTokens - 1).toString());
+    res.setHeader("X-RateLimit-Limit", config.maxTokens.toString());
+    res.setHeader(
+      "X-RateLimit-Remaining",
+      (status?.remaining ?? config.maxTokens - 1).toString(),
+    );
 
     if (status) {
-      res.setHeader('X-RateLimit-Reset', (status.reset / 1000).toString());
-      res.setHeader('Retry-After', (status.retryAfter || 1).toString());
+      res.setHeader("X-RateLimit-Reset", (status.reset / 1000).toString());
+      res.setHeader("Retry-After", (status.retryAfter || 1).toString());
       return res.status(429).json({
-        error: 'Too Many Requests',
-        message: 'Rate limit exceeded for this endpoint. Please try again later.',
+        error: "Too Many Requests",
+        message:
+          "Rate limit exceeded for this endpoint. Please try again later.",
       });
     }
 
-    res.setHeader('X-RateLimit-Reset', ((Date.now() + config.windowMs) / 1000).toString());
+    res.setHeader(
+      "X-RateLimit-Reset",
+      ((Date.now() + config.windowMs) / 1000).toString(),
+    );
     return next();
   };
 }

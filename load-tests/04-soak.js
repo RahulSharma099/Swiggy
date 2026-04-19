@@ -1,7 +1,7 @@
 /**
  * k6 Load Test - Soak Test
  *
- * Tests: Sustained load over extended period
+ * Tests: Sustained load over extended period with JWT auth
  * Measures: Memory leaks, connection degradation, sustained throughput
  *
  * Run with: k6 run --duration 5m load-tests/04-soak.js
@@ -10,6 +10,7 @@
 import http from "k6/http";
 import { check, group, sleep } from "k6";
 import { Rate, Trend, Counter } from "k6/metrics";
+import { getAuthHeaders } from "./auth-utils.js";
 
 const errorRate = new Rate("soak_errors");
 const requestDuration = new Trend("soak_request_duration");
@@ -34,10 +35,8 @@ const BASE_URL = "http://localhost:3000";
 
 export default function () {
   group("Sustained Load Pattern", () => {
-    const headers = {
-      "Content-Type": "application/json",
-      "x-user-id": `user-${__VU}`,
-    };
+    const userId = `soak-user-${__VU}`;
+    const headers = getAuthHeaders(userId);
 
     // Cycle through endpoints to simulate real usage
     const endpoints = [
